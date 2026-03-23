@@ -1,0 +1,79 @@
+class FrameworkConstants:
+    CONFIG_RESOURCES_ROOT = "src/test/resources/config"
+    TEST_DATA_RESOURCES_ROOT = "src/test/resources/testdata"
+    SCHEMA_RESOURCES_ROOT = "src/test/resources/schemas"
+    LOGGING_CONFIG_FILE = "src/test/resources/logging.conf"
+
+    FRAMEWORK_CONFIG_FILE = "framework.properties"
+    QA_CONFIG_FILE = "qa.properties"
+    STAGE_CONFIG_FILE = "stage.properties"
+    DEV_CONFIG_FILE = "dev.properties"
+
+    REPORTS_FOLDER = "test-output/reports"
+    SCREENSHOTS_FOLDER = "test-output/screenshots"
+    CUCUMBER_REPORTS_FOLDER = "test-output/cucumber"
+    LOGS_FOLDER = "test-output/logs"
+    TRACES_FOLDER = "test-output/traces"
+    VIDEOS_FOLDER = "test-output/videos"
+
+    CHROME = "chrome"
+    FIREFOX = "firefox"
+    EDGE = "edge"
+
+    EXECUTION_MODE_LOCAL = "local"
+    EXECUTION_MODE_REMOTE = "remote"
+
+    REMOTE_PROVIDER_SELENIUM_GRID = "selenium-grid"
+    REMOTE_PROVIDER_BROWSERSTACK = "browserstack"
+
+    DEFAULT_SELENIUM_REMOTE_URL = "http://localhost:4444"
+    DEFAULT_BROWSERSTACK_HUB_URL = "https://hub-cloud.browserstack.com/wd/hub"
+    DEFAULT_BROWSERSTACK_OS = "Windows"
+    DEFAULT_BROWSERSTACK_OS_VERSION = "11"
+    DEFAULT_BROWSERSTACK_BROWSER_VERSION = "latest"
+    DEFAULT_BROWSERSTACK_PROJECT_NAME = "Parabank Playwright Framework"
+    DEFAULT_BROWSERSTACK_BUILD_NAME = "Local BrowserStack Build"
+    DEFAULT_BROWSERSTACK_SESSION_NAME = "Parabank Playwright Session"
+    DEFAULT_BROWSERSTACK_CONSOLE_LOGS = "errors"
+    DEFAULT_BROWSERSTACK_LOCAL = False
+    DEFAULT_BROWSERSTACK_DEBUG = True
+    DEFAULT_BROWSERSTACK_NETWORK_LOGS = True
+
+    DEFAULT_IMPLICIT_WAIT = 5
+    DEFAULT_EXPLICIT_WAIT = 20
+    DEFAULT_PAGE_LOAD_TIMEOUT = 30
+    DEFAULT_SCRIPT_TIMEOUT = 30
+
+    DEFAULT_SMART_WAIT_POLLING_MILLIS = 500
+    DEFAULT_RESILIENT_FIND_RETRIES = 2
+    DEFAULT_RESILIENT_FIND_DELAY_MILLIS = 300
+
+    DEFAULT_API_CONNECT_TIMEOUT_SECONDS = 15
+    DEFAULT_API_READ_TIMEOUT_SECONDS = 30
+
+    DEFAULT_STARTUP_VALIDATION_ENABLED = True
+    DEFAULT_STARTUP_VALIDATION_TIMEOUT_SECONDS = 10
+
+    LOCAL_SECRETS_FILE_PATH = "config/local-secrets.properties"
+
+    PARABANK_USERNAME_KEY = "PARABANK_USERNAME"
+    PARABANK_PASSWORD_KEY = "PARABANK_PASSWORD"
+    BROWSERSTACK_USERNAME_KEY = "BROWSERSTACK_USERNAME"
+    BROWSERSTACK_ACCESS_KEY_KEY = "BROWSERSTACK_ACCESS_KEY"
+
+    SUPPORTED_ENVIRONMENTS = {"qa", "stage", "dev"}
+    SUPPORTED_BROWSERS = {"chrome", "firefox", "edge"}
+    SUPPORTED_EXECUTION_MODES = {"local", "remote"}
+    SUPPORTED_REMOTE_PROVIDERS = {"selenium-grid", "browserstack"}
+
+    PLAYWRIGHT_BROWSER_NAME_MAP = {
+        "chrome": "chromium",
+        "firefox": "firefox",
+        "edge": "chromium",
+    }
+
+    PLAYWRIGHT_BROWSER_CHANNEL_MAP = {
+        "chrome": "chrome",
+        "firefox": "",
+        "edge": "msedge",
+    }
