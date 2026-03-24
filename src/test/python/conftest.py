@@ -7,6 +7,7 @@ from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_
 
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.config.framework_constants import FrameworkConstants
+from com.parabank.automation.context.test_context import FrameworkContext
 from com.parabank.automation.driver.browser_factory import BrowserFactory
 from com.parabank.automation.driver.browser_options_factory import BrowserOptionsFactory
 from com.parabank.automation.driver.driver_manager import DriverManager
@@ -231,3 +232,11 @@ def framework_page(
         page.close()
     finally:
         DriverManager.clear_page()
+
+
+@pytest.fixture(scope="function")
+def test_context(
+    framework_page: Page,
+    framework_config: ConfigManager,
+) -> FrameworkContext:
+    return FrameworkContext(framework_page, framework_config)
