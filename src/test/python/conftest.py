@@ -16,7 +16,8 @@ from com.parabank.automation.utils.framework_logger import FrameworkLogger
 from com.parabank.automation.validation.startup_validator import StartupValidator
 
 
-pytest_plugins = ("stepdefinitions.ui.login_accounts_overview_steps",)
+pytest_plugins = ("stepdefinitions.ui.login_accounts_overview_steps",
+                  "hooks.pytest_bdd_hooks",)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
