@@ -18,3 +18,8 @@ venv/
 
 # Test artifacts
 test-output/
+
+# Environment files
+.env
+.env.*
+!.env.example
