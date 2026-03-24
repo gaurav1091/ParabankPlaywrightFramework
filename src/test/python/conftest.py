@@ -7,7 +7,7 @@ from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_
 
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.config.framework_constants import FrameworkConstants
-from com.parabank.automation.context.test_context import FrameworkContext
+from com.parabank.automation.context.framework_context import FrameworkContext
 from com.parabank.automation.driver.browser_factory import BrowserFactory
 from com.parabank.automation.driver.browser_options_factory import BrowserOptionsFactory
 from com.parabank.automation.driver.driver_manager import DriverManager
