@@ -16,6 +16,9 @@ from com.parabank.automation.utils.framework_logger import FrameworkLogger
 from com.parabank.automation.validation.startup_validator import StartupValidator
 
 
+pytest_plugins = ("stepdefinitions.ui.login_accounts_overview_steps",)
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--env", action="store", default=None, help="Execution environment: qa, stage, dev")
     parser.addoption(
@@ -235,8 +238,13 @@ def framework_page(
 
 
 @pytest.fixture(scope="function")
-def test_context(
+def framework_context_object(
     framework_page: Page,
     framework_config: ConfigManager,
 ) -> FrameworkContext:
     return FrameworkContext(framework_page, framework_config)
+
+
+@pytest.fixture(scope="function")
+def test_context(framework_context_object: FrameworkContext) -> FrameworkContext:
+    return framework_context_object
