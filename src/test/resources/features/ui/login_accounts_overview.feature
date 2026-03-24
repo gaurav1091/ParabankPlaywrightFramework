@@ -1,6 +1,7 @@
+@ui @smoke @regression
 Feature: Login and Accounts Overview
 
-  @ui @smoke @regression
+  @ui @smoke
   Scenario: Valid user logs in and views accounts overview
     Given the user opens the Parabank login page
     When the user logs in with valid credentials
