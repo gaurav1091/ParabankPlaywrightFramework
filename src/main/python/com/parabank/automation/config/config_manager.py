@@ -25,13 +25,13 @@ class ConfigManager:
         self.environment_properties = PropertyReader.load_properties(environment_config_path)
 
     @classmethod
-    def initialize(cls, overrides: dict[str, str] | None = None) -> ConfigManager:
+    def initialize(cls, overrides: dict[str, str] | None = None) -> "ConfigManager":
         cls._overrides = cls._sanitize_overrides(overrides or {})
         cls._instance = ConfigManager()
         return cls._instance
 
     @classmethod
-    def instance(cls) -> ConfigManager:
+    def instance(cls) -> "ConfigManager":
         if cls._instance is None:
             cls.initialize({})
         return cls._instance
@@ -68,6 +68,15 @@ class ConfigManager:
 
     def get_browser(self) -> str:
         return (self.get_property("browser") or FrameworkConstants.CHROME).strip().lower()
+
+    def get_playwright_browser_name(self) -> str:
+        browser = self.get_browser()
+        return FrameworkConstants.PLAYWRIGHT_BROWSER_NAME_MAP.get(browser, "chromium")
+
+    def get_playwright_browser_channel(self) -> str | None:
+        browser = self.get_browser()
+        channel = FrameworkConstants.PLAYWRIGHT_BROWSER_CHANNEL_MAP.get(browser, "")
+        return channel if channel else None
 
     def is_headless(self) -> bool:
         return self._to_bool(self.get_property("headless"), default=False)
@@ -288,6 +297,96 @@ class ConfigManager:
         return self._get_int_property(
             "startup.validation.timeout.seconds",
             FrameworkConstants.DEFAULT_STARTUP_VALIDATION_TIMEOUT_SECONDS,
+        )
+
+    def get_playwright_slow_mo_millis(self) -> int:
+        return self._get_int_property(
+            "playwright.slow.mo.millis",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_SLOW_MO_MILLIS,
+        )
+
+    def get_playwright_browser_launch_timeout_millis(self) -> int:
+        return self._get_int_property(
+            "playwright.browser.launch.timeout.millis",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_BROWSER_LAUNCH_TIMEOUT_MILLIS,
+        )
+
+    def get_playwright_action_timeout_millis(self) -> int:
+        return self._get_int_property(
+            "playwright.action.timeout.millis",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_ACTION_TIMEOUT_MILLIS,
+        )
+
+    def get_playwright_navigation_timeout_millis(self) -> int:
+        return self._get_int_property(
+            "playwright.navigation.timeout.millis",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_NAVIGATION_TIMEOUT_MILLIS,
+        )
+
+    def is_playwright_trace_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.trace.enabled"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_TRACE_ENABLED,
+        )
+
+    def is_playwright_trace_screenshots_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.trace.screenshots"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_TRACE_SCREENSHOTS,
+        )
+
+    def is_playwright_trace_snapshots_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.trace.snapshots"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_TRACE_SNAPSHOTS,
+        )
+
+    def is_playwright_trace_sources_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.trace.sources"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_TRACE_SOURCES,
+        )
+
+    def is_playwright_video_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.video.enabled"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_VIDEO_ENABLED,
+        )
+
+    def get_playwright_video_width(self) -> int:
+        return self._get_int_property(
+            "playwright.video.width",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_VIDEO_WIDTH,
+        )
+
+    def get_playwright_video_height(self) -> int:
+        return self._get_int_property(
+            "playwright.video.height",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_VIDEO_HEIGHT,
+        )
+
+    def get_playwright_viewport_width(self) -> int:
+        return self._get_int_property(
+            "playwright.viewport.width",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_VIEWPORT_WIDTH,
+        )
+
+    def get_playwright_viewport_height(self) -> int:
+        return self._get_int_property(
+            "playwright.viewport.height",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_VIEWPORT_HEIGHT,
+        )
+
+    def is_playwright_accept_downloads_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.accept.downloads"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_ACCEPT_DOWNLOADS,
+        )
+
+    def is_playwright_ignore_https_errors_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("playwright.ignore.https.errors"),
+            default=FrameworkConstants.DEFAULT_PLAYWRIGHT_IGNORE_HTTPS_ERRORS,
         )
 
     def get_current_environment(self) -> str:
