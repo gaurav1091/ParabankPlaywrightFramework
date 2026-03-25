@@ -1,0 +1,188 @@
+name: Parabank CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Suite to run"
+        required: true
+        default: "smoke"
+        type: choice
+        options:
+          - smoke
+          - regression
+          - sanity
+          - ui
+          - api
+          - hybrid
+      environment:
+        description: "Execution environment"
+        required: true
+        default: "qa"
+        type: choice
+        options:
+          - qa
+          - stage
+          - dev
+      browser:
+        description: "Browser"
+        required: true
+        default: "chrome"
+        type: choice
+        options:
+          - chrome
+          - firefox
+          - edge
+
+concurrency:
+  group: parabank-ci-${{ github.ref }}-${{ github.event.inputs.suite || 'smoke' }}
+  cancel-in-progress: true
+
+jobs:
+  parabank-tests:
+    name: Run Parabank tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      PARABANK_USERNAME: ${{ secrets.PARABANK_USERNAME }}
+      PARABANK_PASSWORD: ${{ secrets.PARABANK_PASSWORD }}
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Show Python version
+        run: python --version
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install project dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers and system dependencies
+        run: python -m playwright install --with-deps
+
+      - name: Resolve suite, environment, and browser
+        id: runtime
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "suite=${{ github.event.inputs.suite }}" >> "$GITHUB_OUTPUT"
+            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+            echo "browser=${{ github.event.inputs.browser }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "suite=smoke" >> "$GITHUB_OUTPUT"
+            echo "environment=qa" >> "$GITHUB_OUTPUT"
+            echo "browser=chrome" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run selected suite
+        shell: bash
+        run: |
+          SUITE="${{ steps.runtime.outputs.suite }}"
+          ENVIRONMENT="${{ steps.runtime.outputs.environment }}"
+          BROWSER="${{ steps.runtime.outputs.browser }}"
+
+          echo "Running suite: ${SUITE}"
+          echo "Environment   : ${ENVIRONMENT}"
+          echo "Browser       : ${BROWSER}"
+
+          case "${SUITE}" in
+            smoke)
+              python src/test/python/runners/smoke_runner.py \
+                --env="${ENVIRONMENT}" \
+                --framework-browser="${BROWSER}" \
+                --framework-headless=true
+              ;;
+            regression)
+              python src/test/python/runners/regression_runner.py \
+                --env="${ENVIRONMENT}" \
+                --framework-browser="${BROWSER}" \
+                --framework-headless=true
+              ;;
+            sanity)
+              python src/test/python/runners/sanity_runner.py \
+                --env="${ENVIRONMENT}" \
+                --framework-browser="${BROWSER}" \
+                --framework-headless=true
+              ;;
+            ui)
+              python src/test/python/runners/ui_runner.py \
+                --env="${ENVIRONMENT}" \
+                --framework-browser="${BROWSER}" \
+                --framework-headless=true
+              ;;
+            api)
+              python src/test/python/runners/api_runner.py \
+                --env="${ENVIRONMENT}" \
+                --framework-browser="${BROWSER}" \
+                --framework-headless=true
+              ;;
+            hybrid)
+              python src/test/python/runners/hybrid_runner.py \
+                --env="${ENVIRONMENT}" \
+                --framework-browser="${BROWSER}" \
+                --framework-headless=true
+              ;;
+            *)
+              echo "Unsupported suite: ${SUITE}"
+              exit 1
+              ;;
+          esac
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-${{ steps.runtime.outputs.suite }}-${{ github.run_number }}
+          path: test-output/reports/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ steps.runtime.outputs.suite }}-${{ github.run_number }}
+          path: test-output/allure-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ steps.runtime.outputs.suite }}-${{ github.run_number }}
+          path: test-output/traces/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ steps.runtime.outputs.suite }}-${{ github.run_number }}
+          path: test-output/screenshots/
+          if-no-files-found: warn
+          retention-days: 7
