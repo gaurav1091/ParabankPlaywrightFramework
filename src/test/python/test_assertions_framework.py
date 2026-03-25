@@ -1,9 +1,13 @@
+import pytest
 from playwright.sync_api import Page
 
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.pages.framework_sanity_page import FrameworkSanityPage
+
+
+pytestmark = [pytest.mark.sanity, pytest.mark.ui]
 
 
 def test_common_and_ui_assertions_work(

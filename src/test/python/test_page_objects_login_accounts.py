@@ -1,3 +1,4 @@
+import pytest
 from playwright.sync_api import Page
 
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
@@ -5,6 +6,9 @@ from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.pages.login_page import LoginPage
 from com.parabank.automation.utils.data_provider import DataProvider
+
+
+pytestmark = [pytest.mark.ui, pytest.mark.regression]
 
 
 def test_login_home_and_accounts_overview_page_objects_work(

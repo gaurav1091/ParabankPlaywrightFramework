@@ -1,7 +1,11 @@
+import pytest
 from playwright.sync_api import Page
 
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.pages.framework_sanity_page import FrameworkSanityPage
+
+
+pytestmark = [pytest.mark.sanity, pytest.mark.ui]
 
 
 def test_base_page_and_ui_utilities_work(
