@@ -42,6 +42,26 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--password", action="store", default=None, help="Override application password")
     parser.addoption("--startup-validation", action="store", default=None, help="Enable/disable startup validation true/false")
 
+    parser.addoption(
+        "--suite",
+        action="store",
+        default="all",
+        choices=["all", "smoke", "regression", "sanity", "ui", "api", "hybrid"],
+        help="Logical suite selection similar to Java runner classes.",
+    )
+    parser.addoption(
+        "--run-manual",
+        action="store_true",
+        default=False,
+        help="Include tests marked as manual.",
+    )
+    parser.addoption(
+        "--run-quarantined",
+        action="store_true",
+        default=False,
+        help="Include tests marked as quarantined.",
+    )
+
 
 def _build_overrides(pytestconfig: pytest.Config) -> dict[str, str]:
     mapping = {
@@ -99,6 +119,76 @@ def _attach_screenshot_to_allure(screenshot_path: str) -> None:
 
 def _attach_text_to_allure(name: str, value: str) -> None:
     allure.attach(value, name=name, attachment_type=allure.attachment_type.TEXT)
+
+
+def _has_marker(item: pytest.Item, marker_name: str) -> bool:
+    return item.get_closest_marker(marker_name) is not None
+
+
+def _matches_suite(item: pytest.Item, suite: str) -> bool:
+    if suite == "all":
+        return True
+
+    if suite == "smoke":
+        return _has_marker(item, "smoke")
+
+    if suite == "regression":
+        return _has_marker(item, "regression")
+
+    if suite == "sanity":
+        return _has_marker(item, "sanity")
+
+    if suite == "ui":
+        return _has_marker(item, "ui") and not _has_marker(item, "hybrid") and not _has_marker(item, "api")
+
+    if suite == "api":
+        return _has_marker(item, "api") and not _has_marker(item, "hybrid")
+
+    if suite == "hybrid":
+        return _has_marker(item, "hybrid")
+
+    return True
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    suite = config.getoption("--suite")
+    run_manual = config.getoption("--run-manual")
+    run_quarantined = config.getoption("--run-quarantined")
+
+    selected_items: list[pytest.Item] = []
+    deselected_items: list[pytest.Item] = []
+
+    for item in items:
+        if not run_manual and _has_marker(item, "manual"):
+            deselected_items.append(item)
+            continue
+
+        if not run_quarantined and _has_marker(item, "quarantined"):
+            deselected_items.append(item)
+            continue
+
+        if not _matches_suite(item, suite):
+            deselected_items.append(item)
+            continue
+
+        selected_items.append(item)
+
+    if deselected_items:
+        config.hook.pytest_deselected(items=deselected_items)
+
+    items[:] = selected_items
+
+
+def pytest_report_header(config: pytest.Config) -> str:
+    suite = config.getoption("--suite")
+    run_manual = config.getoption("--run-manual")
+    run_quarantined = config.getoption("--run-quarantined")
+
+    return (
+        f"Suite selection: {suite} | "
+        f"Include manual: {run_manual} | "
+        f"Include quarantined: {run_quarantined}"
+    )
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -176,6 +266,7 @@ def pytest_configure(config: pytest.Config) -> None:
     logger.info("DP Thread Count  : %s", config_manager.get_data_provider_thread_count())
     logger.info("Retry Enabled    : %s", config_manager.is_retry_enabled())
     logger.info("Retry Count      : %s", config_manager.get_retry_count())
+    logger.info("Selected Suite   : %s", config.getoption("--suite"))
 
 
 @pytest.fixture(scope="session")
