@@ -1,5 +1,10 @@
+import pytest
+
 from com.parabank.automation.models.login_data import LoginData
 from com.parabank.automation.utils.data_provider import DataProvider
+
+
+pytestmark = [pytest.mark.sanity]
 
 
 def test_login_data_model_mapping() -> None:
