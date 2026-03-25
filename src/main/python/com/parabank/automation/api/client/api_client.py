@@ -14,8 +14,10 @@ class ApiClient:
         self._config_manager = config_manager
         self._logger = FrameworkLogger.get_logger("parabank_framework.api_client")
 
+        base_url = self._config_manager.get_api_base_url().rstrip("/") + "/"
+
         self._request_context: APIRequestContext = self._playwright.request.new_context(
-            base_url=self._config_manager.get_api_base_url(),
+            base_url=base_url,
             extra_http_headers={
                 "Accept": "application/json",
             },
@@ -46,33 +48,29 @@ class ApiClient:
                 f"Response body is not valid JSON. Path={path} | Status={response.status}"
             ) from exc
 
-    def get_json_object(self, path: str) -> dict[str, Any]:
-        payload = self.get(path)
+    def get_with_headers(self, path: str, headers: dict[str, str]) -> Any:
+        self._logger.info("Sending API GET request with custom headers. Path=%s", path)
 
-        if not isinstance(payload, dict):
+        response = self._request_context.get(path, headers=headers)
+
+        self._logger.info(
+            "Received API response. Path=%s | Status=%s | OK=%s",
+            path,
+            response.status,
+            response.ok,
+        )
+
+        if not response.ok:
             raise AssertionError(
-                f"Expected JSON object response. Path={path} | ActualType={type(payload).__name__}"
+                f"GET request failed. Path={path} | Status={response.status} | Body={response.text()}"
             )
 
-        return payload
-
-    def get_json_array(self, path: str) -> list[dict[str, Any]]:
-        payload = self.get(path)
-
-        if not isinstance(payload, list):
+        try:
+            return response.json()
+        except Exception as exc:
             raise AssertionError(
-                f"Expected JSON array response. Path={path} | ActualType={type(payload).__name__}"
-            )
-
-        normalized: list[dict[str, Any]] = []
-        for item in payload:
-            if not isinstance(item, dict):
-                raise AssertionError(
-                    f"Expected JSON object items in array response. Path={path} | ItemType={type(item).__name__}"
-                )
-            normalized.append(item)
-
-        return normalized
+                f"Response body is not valid JSON. Path={path} | Status={response.status}"
+            ) from exc
 
     def dispose(self) -> None:
         self._logger.info("Closing API request context.")
