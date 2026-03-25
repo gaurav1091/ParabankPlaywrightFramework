@@ -398,6 +398,17 @@ class ConfigManager:
             return default
         return value.strip().lower() in {"true", "1", "yes", "y", "on"}
 
+    def get_test_data_base_path(self) -> str:
+        """
+        Returns environment-specific test data base directory.
+        Example:
+            qa → src/test/resources/testdata/qa
+            stage → src/test/resources/testdata/stage
+        """
+        env = self.get_current_environment()
+
+        return f"src/test/resources/testdata/{env}"
+
     def _get_int_property(self, key: str, default: int) -> int:
         value = self.get_property(key)
 
