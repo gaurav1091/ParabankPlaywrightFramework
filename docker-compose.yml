@@ -1,0 +1,21 @@
+services:
+  parabank-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parabank-playwright-framework
+    working_dir: /app
+    environment:
+      PARABANK_USERNAME: ${PARABANK_USERNAME:-}
+      PARABANK_PASSWORD: ${PARABANK_PASSWORD:-}
+      BROWSERSTACK_USERNAME: ${BROWSERSTACK_USERNAME:-}
+      BROWSERSTACK_ACCESS_KEY: ${BROWSERSTACK_ACCESS_KEY:-}
+      SUITE: ${SUITE:-smoke}
+      TEST_ENV: ${TEST_ENV:-qa}
+      BROWSER: ${BROWSER:-chrome}
+      HEADLESS: ${HEADLESS:-true}
+      PYTEST_EXTRA_ARGS: ${PYTEST_EXTRA_ARGS:-}
+      DISABLE_PLAYWRIGHT_BROWSER_CHANNEL: ${DISABLE_PLAYWRIGHT_BROWSER_CHANNEL:-true}
+    volumes:
+      - ./test-output:/app/test-output
+    shm_size: "2gb"
