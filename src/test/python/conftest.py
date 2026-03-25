@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+import allure
 import pytest
 from dotenv import load_dotenv
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
@@ -12,68 +13,34 @@ from com.parabank.automation.driver.browser_factory import BrowserFactory
 from com.parabank.automation.driver.browser_options_factory import BrowserOptionsFactory
 from com.parabank.automation.driver.driver_manager import DriverManager
 from com.parabank.automation.reports.report_path_manager import ReportPathManager
+from com.parabank.automation.utils.artifact_cleanup_manager import ArtifactCleanupManager
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
 from com.parabank.automation.validation.startup_validator import StartupValidator
 
 
-pytest_plugins = ("stepdefinitions.ui.login_accounts_overview_steps",
-                  "hooks.pytest_bdd_hooks",)
+pytest_plugins = (
+    "stepdefinitions.ui.login_accounts_overview_steps",
+)
+
+LOGGER = FrameworkLogger.get_logger("parabank_framework.conftest")
+REPORTS_DIR = Path("test-output/reports")
+REPORT_IMAGES_DIR = REPORTS_DIR / "images"
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--env", action="store", default=None, help="Execution environment: qa, stage, dev")
-    parser.addoption(
-        "--framework-browser",
-        action="store",
-        default=None,
-        help="Framework browser: chrome, firefox, edge",
-    )
-    parser.addoption(
-        "--framework-headless",
-        action="store",
-        default=None,
-        help="Framework headless mode: true/false",
-    )
-    parser.addoption(
-        "--execution-mode",
-        action="store",
-        default=None,
-        help="Execution mode: local/remote",
-    )
-    parser.addoption(
-        "--remote-provider",
-        action="store",
-        default=None,
-        help="Remote provider: selenium-grid/browserstack",
-    )
-    parser.addoption(
-        "--thread-count",
-        action="store",
-        default=None,
-        help="Parallel worker count equivalent",
-    )
-    parser.addoption(
-        "--data-provider-thread-count",
-        action="store",
-        default=None,
-        help="Parity placeholder with Java framework",
-    )
+    parser.addoption("--framework-browser", action="store", default=None, help="Framework browser: chrome, firefox, edge")
+    parser.addoption("--framework-headless", action="store", default=None, help="Framework headless mode: true/false")
+    parser.addoption("--execution-mode", action="store", default=None, help="Execution mode: local/remote")
+    parser.addoption("--remote-provider", action="store", default=None, help="Remote provider: selenium-grid/browserstack")
+    parser.addoption("--thread-count", action="store", default=None, help="Parallel worker count equivalent")
+    parser.addoption("--data-provider-thread-count", action="store", default=None, help="Parity placeholder with Java framework")
     parser.addoption("--retry-count", action="store", default=None, help="Retry count")
-    parser.addoption(
-        "--framework-base-url",
-        action="store",
-        default=None,
-        help="Override application base url",
-    )
+    parser.addoption("--framework-base-url", action="store", default=None, help="Override application base url")
     parser.addoption("--api-base-url", action="store", default=None, help="Override API base url")
     parser.addoption("--username", action="store", default=None, help="Override application username")
     parser.addoption("--password", action="store", default=None, help="Override application password")
-    parser.addoption(
-        "--startup-validation",
-        action="store",
-        default=None,
-        help="Enable/disable startup validation true/false",
-    )
+    parser.addoption("--startup-validation", action="store", default=None, help="Enable/disable startup validation true/false")
 
 
 def _build_overrides(pytestconfig: pytest.Config) -> dict[str, str]:
@@ -92,7 +59,6 @@ def _build_overrides(pytestconfig: pytest.Config) -> dict[str, str]:
         "password": pytestconfig.getoption("--password"),
         "startup.validation.enabled": pytestconfig.getoption("--startup-validation"),
     }
-
     return {key: value for key, value in mapping.items() if value is not None}
 
 
@@ -105,10 +71,88 @@ def _build_trace_file_path(request: pytest.FixtureRequest) -> str:
     return str(Path(FrameworkConstants.TRACES_FOLDER) / file_name)
 
 
+def _build_report_image_path(nodeid: str, when: str) -> Path:
+    safe_name = f"failure_{_safe_node_name(nodeid)}_{when}.png"
+    return REPORT_IMAGES_DIR / safe_name
+
+
+def _was_test_unsuccessful(request: pytest.FixtureRequest) -> bool:
+    rep_setup = getattr(request.node, "rep_setup", None)
+    rep_call = getattr(request.node, "rep_call", None)
+    return bool((rep_setup is not None and rep_setup.failed) or (rep_call is not None and rep_call.failed))
+
+
+def _attach_trace_to_allure(trace_path: str) -> None:
+    if Path(trace_path).exists():
+        allure.attach.file(trace_path, name="playwright_trace", extension="zip")
+
+
+def _attach_screenshot_to_allure(screenshot_path: str) -> None:
+    path = Path(screenshot_path)
+    if path.exists():
+        allure.attach.file(
+            str(path),
+            name="failure_screenshot",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+
+def _attach_text_to_allure(name: str, value: str) -> None:
+    allure.attach(value, name=name, attachment_type=allure.attachment_type.TEXT)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
+    outcome = yield
+    report = outcome.get_result()
+
+    setattr(item, f"rep_{report.when}", report)
+
+    if report.when != "teardown":
+        return
+
+    screenshot_path = getattr(item, "failure_screenshot_path", None)
+    if not screenshot_path:
+        return
+
+    pytest_html = item.config.pluginmanager.getplugin("html")
+    if pytest_html is None:
+        return
+
+    extras = getattr(report, "extras", [])
+    relative_image_path = f"images/{Path(screenshot_path).name}"
+    extras.append(pytest_html.extras.url(relative_image_path, name="failure_screenshot"))
+    report.extras = extras
+
+
+def _cleanup_artifacts_if_enabled(config_manager: ConfigManager) -> None:
+    cleanup_enabled_raw = config_manager.get_property("artifact.cleanup.enabled")
+    cleanup_enabled = str(cleanup_enabled_raw).strip().lower() in {"true", "1", "yes", "y", "on"}
+
+    if not cleanup_enabled:
+        LOGGER.info("Artifact cleanup is disabled.")
+        return
+
+    raw_directories = config_manager.get_property("artifact.cleanup.directories")
+    directories_to_cleanup = ArtifactCleanupManager.parse_directories_property(raw_directories)
+
+    if not directories_to_cleanup:
+        LOGGER.info("No artifact directories configured for cleanup.")
+        return
+
+    LOGGER.info("Artifact cleanup enabled. Cleaning directories: %s", directories_to_cleanup)
+    ArtifactCleanupManager.cleanup_directories(directories_to_cleanup)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     load_dotenv()
     FrameworkLogger.configure_logging()
     logger = FrameworkLogger.get_logger("parabank_framework.bootstrap")
+
+    overrides = _build_overrides(config)
+    config_manager = ConfigManager.initialize(overrides)
+
+    _cleanup_artifacts_if_enabled(config_manager)
 
     ReportPathManager.create_directory_if_not_exists(FrameworkConstants.REPORTS_FOLDER)
     ReportPathManager.create_directory_if_not_exists(FrameworkConstants.SCREENSHOTS_FOLDER)
@@ -116,9 +160,7 @@ def pytest_configure(config: pytest.Config) -> None:
     ReportPathManager.create_directory_if_not_exists(FrameworkConstants.LOGS_FOLDER)
     ReportPathManager.create_directory_if_not_exists(FrameworkConstants.TRACES_FOLDER)
     ReportPathManager.create_directory_if_not_exists(FrameworkConstants.VIDEOS_FOLDER)
-
-    overrides = _build_overrides(config)
-    config_manager = ConfigManager.initialize(overrides)
+    ReportPathManager.create_directory_if_not_exists("test-output/allure-results")
 
     StartupValidator.validate_or_throw()
 
@@ -194,6 +236,8 @@ def framework_context(
     context.set_default_timeout(framework_config.get_playwright_action_timeout_millis())
     context.set_default_navigation_timeout(framework_config.get_playwright_navigation_timeout_millis())
 
+    trace_path = _build_trace_file_path(request)
+
     if framework_config.is_playwright_trace_enabled():
         logger.info("Starting tracing for test: %s", request.node.nodeid)
         context.tracing.start(
@@ -206,9 +250,19 @@ def framework_context(
 
     try:
         if framework_config.is_playwright_trace_enabled():
-            trace_path = _build_trace_file_path(request)
             logger.info("Stopping tracing and saving trace: %s", trace_path)
             context.tracing.stop(path=trace_path)
+
+            if _was_test_unsuccessful(request):
+                try:
+                    _attach_trace_to_allure(trace_path)
+                    logger.info("Attached trace to Allure for failed test: %s", request.node.nodeid)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed attaching trace to Allure. Node=%s | Error=%s",
+                        request.node.nodeid,
+                        exc,
+                    )
     finally:
         logger.info("Closing browser context for test: %s", request.node.nodeid)
         context.close()
@@ -231,6 +285,36 @@ def framework_page(
 
     yield page
 
+    if _was_test_unsuccessful(request):
+        try:
+            REPORT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+            screenshot_path = _build_report_image_path(request.node.nodeid, "call")
+            page.screenshot(path=str(screenshot_path), full_page=True)
+            request.node.failure_screenshot_path = str(screenshot_path)
+
+            LOGGER.info(
+                "Failure screenshot captured in framework_page fixture teardown. Node=%s | Screenshot=%s",
+                request.node.nodeid,
+                screenshot_path,
+            )
+
+            try:
+                _attach_screenshot_to_allure(str(screenshot_path))
+                _attach_text_to_allure("failure_url", page.url)
+                _attach_text_to_allure("failure_title", page.title())
+            except Exception as exc:
+                LOGGER.warning(
+                    "Failed attaching screenshot to Allure from framework_page teardown. Node=%s | Error=%s",
+                    request.node.nodeid,
+                    exc,
+                )
+        except Exception as exc:
+            LOGGER.warning(
+                "Failed capturing screenshot in framework_page teardown. Node=%s | Error=%s",
+                request.node.nodeid,
+                exc,
+            )
+
     logger.info("Closing page for test: %s", request.node.nodeid)
     try:
         page.close()
@@ -248,4 +332,7 @@ def framework_context_object(
 
 @pytest.fixture(scope="function")
 def test_context(framework_context_object: FrameworkContext) -> FrameworkContext:
+    """
+    Exposed explicitly for pytest-bdd step definitions.
+    """
     return framework_context_object
