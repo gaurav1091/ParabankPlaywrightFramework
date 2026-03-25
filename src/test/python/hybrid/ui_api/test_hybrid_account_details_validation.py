@@ -1,78 +1,45 @@
 import pytest
-from playwright.sync_api import Page
+from playwright.sync_api import Page, Playwright
 
-from com.parabank.automation.assertions.common_assertions import CommonAssertions
-from com.parabank.automation.assertions.ui_assertions import UiAssertions
+from com.parabank.automation.api.services.accounts_api_service import AccountsApiService
 from com.parabank.automation.config.config_manager import ConfigManager
-from com.parabank.automation.pages.admin_page import AdminPage
+from com.parabank.automation.context.framework_context import FrameworkContext
+from com.parabank.automation.hybrid.services.hybrid_accounts_service import HybridAccountsService
+from com.parabank.automation.pages.login_page import LoginPage
+from com.parabank.automation.utils.data_provider import DataProvider
 
 
-pytestmark = [pytest.mark.ui, pytest.mark.api, pytest.mark.hybrid, pytest.mark.integration, pytest.mark.regression]
+pytestmark = [pytest.mark.hybrid, pytest.mark.ui, pytest.mark.api, pytest.mark.integration, pytest.mark.regression]
 
 
-def test_environment_hybrid_readiness_is_detected_correctly(
+def test_accounts_overview_ui_vs_api_validation(
     framework_page: Page,
+    framework_playwright: Playwright,
     framework_config: ConfigManager,
 ) -> None:
-    admin_page = AdminPage(framework_page, framework_config)
-    admin_page.open_admin_page()
+    context = FrameworkContext(framework_page, framework_config)
+    context.reset_hybrid_state()
 
-    UiAssertions.assert_element_visible(
-        framework_page,
-        admin_page.is_administration_heading_visible(),
-        "Administration Heading",
-        "Administration heading should be visible on admin page.",
-        "phase13_admin_heading_visibility",
+    login_data = DataProvider.get_login_data(
+        "login/login_test_data.json",
+        "validLogin",
     )
 
-    CommonAssertions.assert_true(
-        admin_page.is_data_access_mode_section_visible(),
-        "Data Access Mode section should be detectable on admin page.",
-    )
+    login_page = LoginPage(framework_page, framework_config)
 
-    readiness = admin_page.get_environment_readiness()
+    login_page.open_login_page()
+    home_page = login_page.login(login_data.username, login_data.password)
 
-    CommonAssertions.assert_not_none(
-        readiness,
-        "Environment readiness should be created from admin page.",
-    )
-    CommonAssertions.assert_not_equals(
-        readiness.selected_data_access_mode,
-        "UNKNOWN",
-        "Environment data access mode should be resolved from admin page.",
-    )
+    accounts_overview_page = home_page.go_to_accounts_overview()
 
-    allowed_modes = ["SOAP", "REST (XML)", "REST (JSON)", "JDBC"]
-    CommonAssertions.assert_contains(
-        allowed_modes,
-        readiness.selected_data_access_mode,
-        "Resolved data access mode should be one of the supported admin page modes.",
-    )
+    api_service = AccountsApiService(framework_playwright, framework_config)
 
-    if readiness.selected_data_access_mode == "JDBC":
-        CommonAssertions.assert_false(
-            readiness.rest_hybrid_supported,
-            "REST hybrid support should be disabled for JDBC mode.",
-        )
-        CommonAssertions.assert_contains(
-            readiness.reason,
-            "JDBC",
-            "Readiness reason should mention JDBC mode.",
-        )
+    try:
+        hybrid_service = HybridAccountsService(accounts_overview_page, api_service)
 
-    elif readiness.selected_data_access_mode == "REST (JSON)":
-        CommonAssertions.assert_true(
-            readiness.rest_hybrid_supported,
-            "REST hybrid support should be enabled for REST (JSON) mode.",
-        )
-        CommonAssertions.assert_contains(
-            readiness.reason,
-            "REST (JSON)",
-            "Readiness reason should mention REST (JSON) mode.",
-        )
+        hybrid_service.load_ui_data(context)
+        hybrid_service.load_api_data(context)
+        hybrid_service.validate_ui_vs_api(context)
 
-    else:
-        CommonAssertions.assert_false(
-            readiness.rest_hybrid_supported,
-            "REST hybrid support should remain disabled for non-REST(JSON) modes.",
-        )
+    finally:
+        api_service.dispose()
