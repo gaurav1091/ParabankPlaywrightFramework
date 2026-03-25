@@ -21,3 +21,25 @@ class AccountsOverviewPage(BasePage):
 
     def get_account_link_count(self) -> int:
         return self.get_count(self.ACCOUNT_LINKS)
+
+    def get_account_numbers(self) -> list[int]:
+        locator = self.page.locator(self.ACCOUNT_LINKS)
+        count = locator.count()
+
+        account_numbers: list[int] = []
+
+        for index in range(count):
+            raw_text = locator.nth(index).inner_text().strip()
+
+            if raw_text.isdigit():
+                account_numbers.append(int(raw_text))
+
+        return account_numbers
+
+    def get_first_account_number(self) -> int:
+        account_numbers = self.get_account_numbers()
+
+        if not account_numbers:
+            raise AssertionError("No account numbers were found on the Accounts Overview page.")
+
+        return account_numbers[0]
