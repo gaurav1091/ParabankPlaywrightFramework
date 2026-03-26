@@ -362,7 +362,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   publish-pages:
-    name: Publish HTML report to GitHub Pages
+    name: Publish reports to GitHub Pages
     needs:
       - prepare
       - parabank-tests
@@ -375,6 +375,26 @@ jobs:
         with:
           path: downloaded-html-reports
           pattern: html-report-${{ needs.prepare.outputs.suite }}-*-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
+          merge-multiple: false
+
+      - name: Download Allure result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-allure-results
+          pattern: allure-results-${{ needs.prepare.outputs.suite }}-*-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
+          merge-multiple: false
+
+      - name: Set up Java for Allure
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Allure CLI
+        shell: bash
+        run: |
+          npm install -g allure-commandline --unsafe-perm=true
+          allure --version
 
       - name: Build Pages site content
         shell: bash
@@ -382,24 +402,42 @@ jobs:
           set -euo pipefail
 
           SITE_DIR="site"
+          REPORTS_DIR="${SITE_DIR}/reports"
           RUN_NUMBER="${{ github.run_number }}"
           SUITE="${{ needs.prepare.outputs.suite }}"
           ENVIRONMENT="${{ needs.prepare.outputs.environment }}"
           EXECUTION_MODE="${{ needs.prepare.outputs.execution_mode }}"
-          RUN_DIR="${SITE_DIR}/reports/run-${RUN_NUMBER}"
-          LATEST_DIR="${SITE_DIR}/reports/latest"
+          RUN_DIR="${REPORTS_DIR}/run-${RUN_NUMBER}"
+          LATEST_DIR="${REPORTS_DIR}/latest"
+          HTML_DIR="${RUN_DIR}/html"
+          ALLURE_DIR="${RUN_DIR}/allure"
 
-          mkdir -p "${RUN_DIR}"
-          mkdir -p "${SITE_DIR}/reports"
+          mkdir -p "${HTML_DIR}"
+          mkdir -p "${ALLURE_DIR}"
+          mkdir -p "${REPORTS_DIR}"
 
           shopt -s nullglob
-          for artifact_dir in downloaded-html-reports/*; do
-            artifact_name="$(basename "${artifact_dir}")"
-            browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
-            target_dir="${RUN_DIR}/${browser}"
 
-            mkdir -p "${target_dir}"
-            cp -R "${artifact_dir}/." "${target_dir}/"
+          for artifact_dir in downloaded-html-reports/*; do
+            if [ -d "${artifact_dir}" ]; then
+              artifact_name="$(basename "${artifact_dir}")"
+              browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
+              target_dir="${HTML_DIR}/${browser}"
+
+              mkdir -p "${target_dir}"
+              cp -R "${artifact_dir}/." "${target_dir}/"
+            fi
+          done
+
+          for artifact_dir in downloaded-allure-results/*; do
+            if [ -d "${artifact_dir}" ]; then
+              artifact_name="$(basename "${artifact_dir}")"
+              browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
+              target_dir="${ALLURE_DIR}/${browser}"
+
+              mkdir -p "${target_dir}"
+              allure generate "${artifact_dir}" --clean -o "${target_dir}"
+            fi
           done
 
           rm -rf "${LATEST_DIR}"
@@ -420,7 +458,8 @@ jobs:
               ul { line-height: 1.9; }
               a { color: #0b57d0; text-decoration: none; }
               a:hover { text-decoration: underline; }
-              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 900px; }
+              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }
+              .section-title { margin-top: 24px; }
             </style>
           </head>
           <body>
@@ -430,19 +469,35 @@ jobs:
               <p><strong>Suite:</strong> ${SUITE}</p>
               <p><strong>Environment:</strong> ${ENVIRONMENT}</p>
               <p><strong>Execution Mode:</strong> ${EXECUTION_MODE}</p>
-              <h2>Browser Reports</h2>
+
+              <h2 class="section-title">HTML Reports</h2>
               <ul>
           EOF
 
-          for browser_dir in "${RUN_DIR}"/*; do
+          for browser_dir in "${HTML_DIR}"/*; do
             if [ -d "${browser_dir}" ]; then
               browser_name="$(basename "${browser_dir}")"
-              echo "        <li><a href=\"./${browser_name}/report.html\">${browser_name}</a></li>" >> "${RUN_DIR}/index.html"
+              echo "        <li><a href=\"./html/${browser_name}/report.html\">${browser_name}</a></li>" >> "${RUN_DIR}/index.html"
             fi
           done
 
           cat >> "${RUN_DIR}/index.html" <<EOF
               </ul>
+
+              <h2 class="section-title">Allure Reports</h2>
+              <ul>
+          EOF
+
+          for browser_dir in "${ALLURE_DIR}"/*; do
+            if [ -d "${browser_dir}" ]; then
+              browser_name="$(basename "${browser_dir}")"
+              echo "        <li><a href=\"./allure/${browser_name}/index.html\">${browser_name}</a></li>" >> "${RUN_DIR}/index.html"
+            fi
+          done
+
+          cat >> "${RUN_DIR}/index.html" <<EOF
+              </ul>
+
               <p><a href="../latest/">Go to Latest Report</a></p>
             </div>
           </body>
@@ -455,15 +510,14 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Parabank Reports</title>
+            <title>Parabank Playwright Reports</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }
               h1 { margin-bottom: 8px; }
-              p { margin-top: 0; }
               ul { line-height: 1.9; }
               a { color: #0b57d0; text-decoration: none; }
               a:hover { text-decoration: underline; }
-              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 900px; }
+              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }
             </style>
           </head>
           <body>
@@ -486,18 +540,21 @@ jobs:
           publish_branch: gh-pages
           keep_files: true
 
-      - name: Add Pages link to workflow summary
+      - name: Add Pages links to workflow summary
         shell: bash
         run: |
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
           OWNER_NAME="${GITHUB_REPOSITORY_OWNER}"
-          RUN_URL="https://${OWNER_NAME}.github.io/${REPO_NAME}/reports/run-${{ github.run_number }}/"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          BASE_URL="https://${OWNER_NAME}.github.io/${REPO_NAME}"
+          RUN_URL="${BASE_URL}/reports/run-${{ github.run_number }}/"
+          LATEST_URL="${BASE_URL}/reports/latest/"
 
           {
             echo ""
-            echo "## GitHub Pages Report"
+            echo "## GitHub Pages Reports"
             echo ""
             echo "| Link | URL |"
             echo "|---|---|"
-            echo "| Run Report | ${RUN_URL} |"
+            echo "| Run Report | [Open Report](${RUN_URL}) |"
+            echo "| Latest Report | [Open Latest](${LATEST_URL}) |"
           } >> "$GITHUB_STEP_SUMMARY"
