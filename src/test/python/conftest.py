@@ -206,12 +206,14 @@ def pytest_report_header(config: pytest.Config) -> str:
     run_manual = config.getoption("--run-manual")
     run_quarantined = config.getoption("--run-quarantined")
     execution_mode = config.getoption("--execution-mode") or "configured-default"
+    browser = config.getoption("--framework-browser") or "configured-default"
 
     return (
         f"Suite selection: {suite} | "
         f"Include manual: {run_manual} | "
         f"Include quarantined: {run_quarantined} | "
-        f"Execution mode: {execution_mode}"
+        f"Execution mode: {execution_mode} | "
+        f"Browser: {browser}"
     )
 
 

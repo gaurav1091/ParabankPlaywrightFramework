@@ -34,8 +34,16 @@ on:
           - qa
           - stage
           - dev
+      browser_mode:
+        description: "Browser selection mode"
+        required: true
+        default: "single"
+        type: choice
+        options:
+          - single
+          - all
       browser:
-        description: "Browser"
+        description: "Single browser to run when browser_mode=single"
         required: true
         default: "chrome"
         type: choice
@@ -44,23 +52,102 @@ on:
           - firefox
           - edge
       execution_mode:
-        description: "Execution target"
+        description: "Execution mode"
         required: true
-        default: "local"
+        default: "auto"
         type: choice
         options:
+          - auto
           - local
           - remote
+      workers:
+        description: "Parallel workers per job"
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
 
 concurrency:
-  group: parabank-ci-${{ github.ref }}-${{ github.event.inputs.suite || 'smoke' }}-${{ github.event.inputs.execution_mode || 'local' }}
+  group: parabank-ci-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.suite || 'smoke' }}
   cancel-in-progress: true
 
 jobs:
+  prepare:
+    name: Resolve runtime plan
+    runs-on: ubuntu-latest
+    outputs:
+      suite: ${{ steps.plan.outputs.suite }}
+      environment: ${{ steps.plan.outputs.environment }}
+      execution_mode: ${{ steps.plan.outputs.execution_mode }}
+      workers: ${{ steps.plan.outputs.workers }}
+      browser_matrix: ${{ steps.plan.outputs.browser_matrix }}
+
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+    steps:
+      - name: Resolve plan
+        id: plan
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SUITE="${{ github.event.inputs.suite }}"
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            BROWSER_MODE="${{ github.event.inputs.browser_mode }}"
+            SINGLE_BROWSER="${{ github.event.inputs.browser }}"
+            REQUESTED_EXECUTION_MODE="${{ github.event.inputs.execution_mode }}"
+            WORKERS="${{ github.event.inputs.workers }}"
+          else
+            SUITE="smoke"
+            ENVIRONMENT="qa"
+            BROWSER_MODE="single"
+            SINGLE_BROWSER="chrome"
+            REQUESTED_EXECUTION_MODE="auto"
+            WORKERS="1"
+          fi
+
+          if [ "${REQUESTED_EXECUTION_MODE}" = "auto" ]; then
+            if [ -n "${BROWSERSTACK_USERNAME}" ] && [ -n "${BROWSERSTACK_ACCESS_KEY}" ]; then
+              EXECUTION_MODE="remote"
+            else
+              EXECUTION_MODE="local"
+            fi
+          else
+            EXECUTION_MODE="${REQUESTED_EXECUTION_MODE}"
+          fi
+
+          if [ "${BROWSER_MODE}" = "all" ]; then
+            BROWSER_MATRIX='{"browser":["chrome","firefox","edge"]}'
+          else
+            BROWSER_MATRIX="{\"browser\":[\"${SINGLE_BROWSER}\"]}"
+          fi
+
+          echo "suite=${SUITE}" >> "$GITHUB_OUTPUT"
+          echo "environment=${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+          echo "execution_mode=${EXECUTION_MODE}" >> "$GITHUB_OUTPUT"
+          echo "workers=${WORKERS}" >> "$GITHUB_OUTPUT"
+          echo "browser_matrix=${BROWSER_MATRIX}" >> "$GITHUB_OUTPUT"
+
+          echo "Resolved suite          : ${SUITE}"
+          echo "Resolved environment    : ${ENVIRONMENT}"
+          echo "Resolved execution mode : ${EXECUTION_MODE}"
+          echo "Resolved workers        : ${WORKERS}"
+          echo "Resolved browser matrix : ${BROWSER_MATRIX}"
+
   parabank-tests:
-    name: Run Parabank tests
+    name: Run ${{ needs.prepare.outputs.suite }} on ${{ matrix.browser }} (${{ needs.prepare.outputs.execution_mode }})
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.browser_matrix) }}
 
     env:
       PARABANK_USERNAME: ${{ secrets.PARABANK_USERNAME }}
@@ -91,24 +178,8 @@ jobs:
       - name: Install Playwright browsers and system dependencies
         run: python -m playwright install --with-deps
 
-      - name: Resolve runtime inputs
-        id: runtime
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "suite=${{ github.event.inputs.suite }}" >> "$GITHUB_OUTPUT"
-            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
-            echo "browser=${{ github.event.inputs.browser }}" >> "$GITHUB_OUTPUT"
-            echo "execution_mode=${{ github.event.inputs.execution_mode }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "suite=smoke" >> "$GITHUB_OUTPUT"
-            echo "environment=qa" >> "$GITHUB_OUTPUT"
-            echo "browser=chrome" >> "$GITHUB_OUTPUT"
-            echo "execution_mode=local" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Validate BrowserStack secrets
-        if: ${{ steps.runtime.outputs.execution_mode == 'remote' }}
+        if: ${{ needs.prepare.outputs.execution_mode == 'remote' }}
         shell: bash
         run: |
           if [ -z "${BROWSERSTACK_USERNAME}" ]; then
@@ -123,27 +194,33 @@ jobs:
 
       - name: Build BrowserStack metadata
         id: browserstack_meta
-        if: ${{ steps.runtime.outputs.execution_mode == 'remote' }}
+        if: ${{ needs.prepare.outputs.execution_mode == 'remote' }}
         shell: bash
         run: |
           SAFE_REF="${GITHUB_REF_NAME//\//-}"
-          BUILD_NAME="gha-${{ steps.runtime.outputs.suite }}-${SAFE_REF}-run-${GITHUB_RUN_NUMBER}"
-          SESSION_NAME="${{ steps.runtime.outputs.suite }}-${{ steps.runtime.outputs.browser }}-${{ github.run_attempt }}"
+          SAFE_BROWSER="${{ matrix.browser }}"
+          BUILD_NAME="gha-${{ needs.prepare.outputs.suite }}-${SAFE_BROWSER}-${SAFE_REF}-run-${GITHUB_RUN_NUMBER}"
+          SESSION_NAME="${{ needs.prepare.outputs.suite }}-${SAFE_BROWSER}-attempt-${GITHUB_RUN_ATTEMPT}"
+          PROJECT_NAME="Parabank Playwright Framework - GHA"
+
+          echo "project_name=${PROJECT_NAME}" >> "$GITHUB_OUTPUT"
           echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
           echo "session_name=${SESSION_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Run selected suite
         shell: bash
         run: |
-          SUITE="${{ steps.runtime.outputs.suite }}"
-          ENVIRONMENT="${{ steps.runtime.outputs.environment }}"
-          BROWSER="${{ steps.runtime.outputs.browser }}"
-          EXECUTION_MODE="${{ steps.runtime.outputs.execution_mode }}"
+          SUITE="${{ needs.prepare.outputs.suite }}"
+          ENVIRONMENT="${{ needs.prepare.outputs.environment }}"
+          BROWSER="${{ matrix.browser }}"
+          EXECUTION_MODE="${{ needs.prepare.outputs.execution_mode }}"
+          WORKERS="${{ needs.prepare.outputs.workers }}"
 
           echo "Running suite      : ${SUITE}"
           echo "Environment        : ${ENVIRONMENT}"
           echo "Browser            : ${BROWSER}"
           echo "Execution Mode     : ${EXECUTION_MODE}"
+          echo "Workers            : ${WORKERS}"
 
           EXTRA_ARGS=()
           EXTRA_ARGS+=("--env=${ENVIRONMENT}")
@@ -153,8 +230,15 @@ jobs:
 
           if [ "${EXECUTION_MODE}" = "remote" ]; then
             EXTRA_ARGS+=("--remote-provider=browserstack")
+            EXTRA_ARGS+=("--browserstack-project-name=${{ steps.browserstack_meta.outputs.project_name }}")
             EXTRA_ARGS+=("--browserstack-build-name=${{ steps.browserstack_meta.outputs.build_name }}")
             EXTRA_ARGS+=("--browserstack-session-name=${{ steps.browserstack_meta.outputs.session_name }}")
+          fi
+
+          if [ "${WORKERS}" != "1" ]; then
+            EXTRA_ARGS+=("-n")
+            EXTRA_ARGS+=("${WORKERS}")
+            EXTRA_ARGS+=("--dist=loadfile")
           fi
 
           case "${SUITE}" in
@@ -186,7 +270,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: html-report-${{ steps.runtime.outputs.suite }}-${{ steps.runtime.outputs.execution_mode }}-${{ github.run_number }}
+          name: html-report-${{ needs.prepare.outputs.suite }}-${{ matrix.browser }}-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
           path: test-output/reports/
           if-no-files-found: warn
           retention-days: 7
@@ -195,7 +279,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results-${{ steps.runtime.outputs.suite }}-${{ steps.runtime.outputs.execution_mode }}-${{ github.run_number }}
+          name: allure-results-${{ needs.prepare.outputs.suite }}-${{ matrix.browser }}-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
           path: test-output/allure-results/
           if-no-files-found: warn
           retention-days: 7
@@ -204,7 +288,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: traces-${{ steps.runtime.outputs.suite }}-${{ steps.runtime.outputs.execution_mode }}-${{ github.run_number }}
+          name: traces-${{ needs.prepare.outputs.suite }}-${{ matrix.browser }}-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
           path: test-output/traces/
           if-no-files-found: warn
           retention-days: 7
@@ -213,7 +297,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-${{ steps.runtime.outputs.suite }}-${{ steps.runtime.outputs.execution_mode }}-${{ github.run_number }}
+          name: screenshots-${{ needs.prepare.outputs.suite }}-${{ matrix.browser }}-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
           path: test-output/screenshots/
           if-no-files-found: warn
           retention-days: 7
@@ -227,11 +311,13 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Suite | ${{ steps.runtime.outputs.suite }} |"
-            echo "| Environment | ${{ steps.runtime.outputs.environment }} |"
-            echo "| Browser | ${{ steps.runtime.outputs.browser }} |"
-            echo "| Execution Mode | ${{ steps.runtime.outputs.execution_mode }} |"
-            if [ "${{ steps.runtime.outputs.execution_mode }}" = "remote" ]; then
+            echo "| Suite | ${{ needs.prepare.outputs.suite }} |"
+            echo "| Environment | ${{ needs.prepare.outputs.environment }} |"
+            echo "| Browser | ${{ matrix.browser }} |"
+            echo "| Execution Mode | ${{ needs.prepare.outputs.execution_mode }} |"
+            echo "| Workers | ${{ needs.prepare.outputs.workers }} |"
+            if [ "${{ needs.prepare.outputs.execution_mode }}" = "remote" ]; then
+              echo "| BrowserStack Project | ${{ steps.browserstack_meta.outputs.project_name }} |"
               echo "| BrowserStack Build | ${{ steps.browserstack_meta.outputs.build_name }} |"
               echo "| BrowserStack Session | ${{ steps.browserstack_meta.outputs.session_name }} |"
             fi
