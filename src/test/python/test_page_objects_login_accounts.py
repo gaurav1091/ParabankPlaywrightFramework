@@ -5,7 +5,6 @@ from com.parabank.automation.assertions.common_assertions import CommonAssertion
 from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.pages.login_page import LoginPage
-from com.parabank.automation.utils.data_provider import DataProvider
 
 
 pytestmark = [pytest.mark.ui, pytest.mark.regression]
@@ -15,11 +14,6 @@ def test_login_home_and_accounts_overview_page_objects_work(
     framework_page: Page,
     framework_config: ConfigManager,
 ) -> None:
-    login_data = DataProvider.get_login_data(
-        "login/login_test_data.json",
-        "validLogin",
-    )
-
     login_page = LoginPage(framework_page, framework_config)
     login_page.open_login_page()
 
@@ -45,7 +39,10 @@ def test_login_home_and_accounts_overview_page_objects_work(
         "phase6_login_button_visibility",
     )
 
-    home_page = login_page.login(login_data.username, login_data.password)
+    home_page = login_page.login(
+        framework_config.get_username(),
+        framework_config.get_password(),
+    )
 
     UiAssertions.assert_element_visible(
         framework_page,

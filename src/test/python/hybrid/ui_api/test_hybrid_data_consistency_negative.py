@@ -4,7 +4,6 @@ from playwright.sync_api import Playwright
 from com.parabank.automation.api.services.accounts_api_service import AccountsApiService
 from com.parabank.automation.hybrid.services.hybrid_accounts_service import HybridAccountsService
 from com.parabank.automation.pages.login_page import LoginPage
-from com.parabank.automation.utils.data_provider import DataProvider
 
 
 @pytest.mark.hybrid
@@ -13,14 +12,12 @@ def test_ui_api_mismatch_detection(test_context, framework_playwright: Playwrigh
     context = test_context
     context.reset_hybrid_state()
 
-    login_data = DataProvider.get_login_data(
-        "login/login_test_data.json",
-        "validLogin",
-    )
-
     login_page = LoginPage(context.page, context.config_manager)
     login_page.open_login_page()
-    home_page = login_page.login(login_data.username, login_data.password)
+    home_page = login_page.login(
+        context.config_manager.get_username(),
+        context.config_manager.get_password(),
+    )
 
     accounts_overview_page = home_page.go_to_accounts_overview()
 

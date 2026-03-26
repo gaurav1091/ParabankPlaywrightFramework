@@ -4,7 +4,6 @@ from com.parabank.automation.assertions.common_assertions import CommonAssertion
 from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.context.framework_context import FrameworkContext
 from com.parabank.automation.pages.login_page import LoginPage
-from com.parabank.automation.utils.data_provider import DataProvider
 
 
 @given("the user opens the Parabank login page")
@@ -16,16 +15,14 @@ def open_login_page(test_context: FrameworkContext) -> None:
 
 @when("the user logs in with valid credentials")
 def login_with_valid_credentials(test_context: FrameworkContext) -> None:
-    login_data = DataProvider.get_login_data(
-        "login/login_test_data.json",
-        "validLogin",
-    )
-
     login_page = test_context.scenario_context.get("login_page")
     if login_page is None:
         login_page = LoginPage(test_context.page, test_context.config_manager)
 
-    home_page = login_page.login(login_data.username, login_data.password)
+    home_page = login_page.login(
+        test_context.config_manager.get_username(),
+        test_context.config_manager.get_password(),
+    )
     test_context.scenario_context.set("home_page", home_page)
 
 
