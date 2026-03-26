@@ -20,11 +20,11 @@ def test_login_data_model_mapping() -> None:
 def test_json_reader_single_entry() -> None:
     login_data = DataProvider.get_login_data(
         "login/login_test_data.json",
-        "validLogin"
+        "invalidLogin"
     )
 
-    assert login_data.username == "john"
-    assert login_data.password == "demo"
+    assert login_data.username == "invalid_user"
+    assert login_data.password == "invalid_pass"
 
 
 def test_json_reader_all_entries() -> None:
@@ -32,9 +32,10 @@ def test_json_reader_all_entries() -> None:
         "login/login_test_data.json"
     )
 
-    assert len(all_data) == 4
+    assert len(all_data) == 3
 
     usernames = [data.username for data in all_data]
 
-    assert "john" in usernames
     assert "invalid_user" in usernames
+    assert "" in usernames
+    assert "john" in usernames

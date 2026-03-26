@@ -6,7 +6,6 @@ from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.context.framework_context import FrameworkContext
 from com.parabank.automation.hybrid.services.hybrid_accounts_service import HybridAccountsService
 from com.parabank.automation.pages.login_page import LoginPage
-from com.parabank.automation.utils.data_provider import DataProvider
 
 
 pytestmark = [pytest.mark.hybrid, pytest.mark.ui, pytest.mark.api, pytest.mark.integration, pytest.mark.regression]
@@ -20,15 +19,13 @@ def test_accounts_overview_ui_vs_api_validation(
     context = FrameworkContext(framework_page, framework_config)
     context.reset_hybrid_state()
 
-    login_data = DataProvider.get_login_data(
-        "login/login_test_data.json",
-        "validLogin",
-    )
-
     login_page = LoginPage(framework_page, framework_config)
 
     login_page.open_login_page()
-    home_page = login_page.login(login_data.username, login_data.password)
+    home_page = login_page.login(
+        framework_config.get_username(),
+        framework_config.get_password(),
+    )
 
     accounts_overview_page = home_page.go_to_accounts_overview()
 
