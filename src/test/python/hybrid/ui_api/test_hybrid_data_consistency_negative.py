@@ -28,14 +28,12 @@ def test_ui_api_mismatch_detection(test_context, framework_playwright: Playwrigh
 
     try:
         hybrid_service = HybridAccountsService(accounts_overview_page, api_service)
-
         hybrid_service.load_ui_data(context)
         hybrid_service.load_api_data(context)
 
         assert context.ui_account_ids, "UI account list should not be empty for mismatch test."
         assert context.api_account_ids, "API account list should not be empty for mismatch test."
 
-        # Force an intentional mismatch to validate negative detection logic
         mutated_api_ids = list(context.api_account_ids)
         if mutated_api_ids:
             mutated_api_ids = mutated_api_ids[:-1]
@@ -44,8 +42,8 @@ def test_ui_api_mismatch_detection(test_context, framework_playwright: Playwrigh
 
         assert sorted(context.ui_account_ids) != sorted(mutated_api_ids), (
             "Mismatch should have been detected, but UI and manipulated API lists matched unexpectedly.\n"
-            f"UI Account IDs         : {sorted(context.ui_account_ids)}\n"
-            f"Manipulated API IDs    : {sorted(mutated_api_ids)}"
+            f"UI Account IDs      : {sorted(context.ui_account_ids)}\n"
+            f"Manipulated API IDs : {sorted(mutated_api_ids)}"
         )
     finally:
         api_service.dispose()
