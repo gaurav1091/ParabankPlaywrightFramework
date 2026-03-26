@@ -79,7 +79,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   prepare:
@@ -361,13 +361,16 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  publish-pages:
-    name: Publish reports to GitHub Pages
+  build-html-report-site:
+    name: Build HTML report site
     needs:
       - prepare
       - parabank-tests
-    if: ${{ github.event_name != 'pull_request' && needs.parabank-tests.result == 'success' }}
+    if: ${{ github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch && needs.parabank-tests.result == 'success' }}
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages-html
+      url: ${{ format('https://{0}.github.io/{1}/reports/run-{2}/html/', github.repository_owner, github.event.repository.name, github.run_number) }}
 
     steps:
       - name: Download HTML report artifacts
@@ -377,6 +380,100 @@ jobs:
           pattern: html-report-${{ needs.prepare.outputs.suite }}-*-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
           merge-multiple: false
 
+      - name: Build static HTML site fragment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SITE_DIR="html-pages-site"
+          REPORT_ROOT="${SITE_DIR}/reports"
+          RUN_ROOT="${REPORT_ROOT}/run-${GITHUB_RUN_NUMBER}"
+          HTML_ROOT="${RUN_ROOT}/html"
+          LATEST_HTML_ROOT="${REPORT_ROOT}/latest/html"
+
+          mkdir -p "${HTML_ROOT}"
+          mkdir -p "${LATEST_HTML_ROOT}"
+          touch "${SITE_DIR}/.nojekyll"
+
+          shopt -s nullglob
+          for artifact_dir in downloaded-html-reports/*; do
+            if [ -d "${artifact_dir}" ]; then
+              artifact_name="$(basename "${artifact_dir}")"
+              browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
+
+              mkdir -p "${HTML_ROOT}/${browser}"
+              mkdir -p "${LATEST_HTML_ROOT}/${browser}"
+
+              cp -R "${artifact_dir}/." "${HTML_ROOT}/${browser}/"
+              rm -rf "${LATEST_HTML_ROOT:?}/${browser}"
+              cp -R "${artifact_dir}" "${LATEST_HTML_ROOT}/${browser}"
+            fi
+          done
+
+          {
+            echo '<!DOCTYPE html>'
+            echo '<html lang="en">'
+            echo '<head>'
+            echo '  <meta charset="UTF-8">'
+            echo '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            echo "  <title>HTML Reports - Run ${GITHUB_RUN_NUMBER}</title>"
+            echo '  <style>'
+            echo '    body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }'
+            echo '    .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }'
+            echo '    a { color: #0b57d0; text-decoration: none; }'
+            echo '    a:hover { text-decoration: underline; }'
+            echo '    ul { line-height: 1.9; }'
+            echo '  </style>'
+            echo '</head>'
+            echo '<body>'
+            echo '  <div class="card">'
+            echo "    <h1>HTML Reports - Run ${GITHUB_RUN_NUMBER}</h1>"
+            echo '    <ul>'
+            for browser_dir in "${HTML_ROOT}"/*; do
+              if [ -d "${browser_dir}" ]; then
+                browser_name="$(basename "${browser_dir}")"
+                echo "      <li><a href=\"./${browser_name}/report.html\">${browser_name}</a></li>"
+              fi
+            done
+            echo '    </ul>'
+            echo '  </div>'
+            echo '</body>'
+            echo '</html>'
+          } > "${HTML_ROOT}/index.html"
+
+          cp "${HTML_ROOT}/index.html" "${LATEST_HTML_ROOT}/index.html"
+
+      - name: Upload HTML Pages fragment
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-pages-fragment
+          path: html-pages-site
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish HTML link to workflow summary
+        shell: bash
+        run: |
+          URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/reports/run-${GITHUB_RUN_NUMBER}/html/"
+          {
+            echo ""
+            echo "## HTML Report"
+            echo ""
+            echo "- HTML report URL: ${URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-allure-report-site:
+    name: Build Allure report site
+    needs:
+      - prepare
+      - parabank-tests
+    if: ${{ github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch && needs.parabank-tests.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages-allure
+      url: ${{ format('https://{0}.github.io/{1}/reports/run-{2}/allure/', github.repository_owner, github.event.repository.name, github.run_number) }}
+
+    steps:
       - name: Download Allure result artifacts
         uses: actions/download-artifact@v4
         with:
@@ -396,165 +493,248 @@ jobs:
           npm install -g allure-commandline --unsafe-perm=true
           allure --version
 
-      - name: Build Pages site content
+      - name: Build static Allure site fragment
         shell: bash
         run: |
           set -euo pipefail
 
-          SITE_DIR="site"
-          REPORTS_DIR="${SITE_DIR}/reports"
-          RUN_NUMBER="${{ github.run_number }}"
-          SUITE="${{ needs.prepare.outputs.suite }}"
-          ENVIRONMENT="${{ needs.prepare.outputs.environment }}"
-          EXECUTION_MODE="${{ needs.prepare.outputs.execution_mode }}"
-          RUN_DIR="${REPORTS_DIR}/run-${RUN_NUMBER}"
-          LATEST_DIR="${REPORTS_DIR}/latest"
-          HTML_DIR="${RUN_DIR}/html"
-          ALLURE_DIR="${RUN_DIR}/allure"
+          SITE_DIR="allure-pages-site"
+          REPORT_ROOT="${SITE_DIR}/reports"
+          RUN_ROOT="${REPORT_ROOT}/run-${GITHUB_RUN_NUMBER}"
+          ALLURE_ROOT="${RUN_ROOT}/allure"
+          LATEST_ALLURE_ROOT="${REPORT_ROOT}/latest/allure"
 
-          mkdir -p "${HTML_DIR}"
-          mkdir -p "${ALLURE_DIR}"
-          mkdir -p "${REPORTS_DIR}"
+          mkdir -p "${ALLURE_ROOT}"
+          mkdir -p "${LATEST_ALLURE_ROOT}"
+          touch "${SITE_DIR}/.nojekyll"
 
           shopt -s nullglob
-
-          for artifact_dir in downloaded-html-reports/*; do
-            if [ -d "${artifact_dir}" ]; then
-              artifact_name="$(basename "${artifact_dir}")"
-              browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
-              target_dir="${HTML_DIR}/${browser}"
-
-              mkdir -p "${target_dir}"
-              cp -R "${artifact_dir}/." "${target_dir}/"
-            fi
-          done
-
           for artifact_dir in downloaded-allure-results/*; do
             if [ -d "${artifact_dir}" ]; then
               artifact_name="$(basename "${artifact_dir}")"
               browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
-              target_dir="${ALLURE_DIR}/${browser}"
 
-              mkdir -p "${target_dir}"
-              allure generate "${artifact_dir}" --clean -o "${target_dir}"
+              mkdir -p "${ALLURE_ROOT}/${browser}"
+              allure generate "${artifact_dir}" --clean -o "${ALLURE_ROOT}/${browser}"
+
+              rm -rf "${LATEST_ALLURE_ROOT:?}/${browser}"
+              mkdir -p "${LATEST_ALLURE_ROOT}"
+              cp -R "${ALLURE_ROOT}/${browser}" "${LATEST_ALLURE_ROOT}/${browser}"
             fi
           done
 
-          rm -rf "${LATEST_DIR}"
-          mkdir -p "${LATEST_DIR}"
-          cp -R "${RUN_DIR}/." "${LATEST_DIR}/"
+          {
+            echo '<!DOCTYPE html>'
+            echo '<html lang="en">'
+            echo '<head>'
+            echo '  <meta charset="UTF-8">'
+            echo '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            echo "  <title>Allure Reports - Run ${GITHUB_RUN_NUMBER}</title>"
+            echo '  <style>'
+            echo '    body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }'
+            echo '    .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }'
+            echo '    a { color: #0b57d0; text-decoration: none; }'
+            echo '    a:hover { text-decoration: underline; }'
+            echo '    ul { line-height: 1.9; }'
+            echo '  </style>'
+            echo '</head>'
+            echo '<body>'
+            echo '  <div class="card">'
+            echo "    <h1>Allure Reports - Run ${GITHUB_RUN_NUMBER}</h1>"
+            echo '    <ul>'
+            for browser_dir in "${ALLURE_ROOT}"/*; do
+              if [ -d "${browser_dir}" ]; then
+                browser_name="$(basename "${browser_dir}")"
+                echo "      <li><a href=\"./${browser_name}/index.html\">${browser_name}</a></li>"
+              fi
+            done
+            echo '    </ul>'
+            echo '  </div>'
+            echo '</body>'
+            echo '</html>'
+          } > "${ALLURE_ROOT}/index.html"
 
-          cat > "${RUN_DIR}/index.html" <<EOF
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Parabank Report - Run ${RUN_NUMBER}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }
-              h1 { margin-bottom: 8px; }
-              p { margin-top: 0; }
-              ul { line-height: 1.9; }
-              a { color: #0b57d0; text-decoration: none; }
-              a:hover { text-decoration: underline; }
-              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }
-              .section-title { margin-top: 24px; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h1>Parabank Playwright Report</h1>
-              <p><strong>Run:</strong> ${RUN_NUMBER}</p>
-              <p><strong>Suite:</strong> ${SUITE}</p>
-              <p><strong>Environment:</strong> ${ENVIRONMENT}</p>
-              <p><strong>Execution Mode:</strong> ${EXECUTION_MODE}</p>
+          cp "${ALLURE_ROOT}/index.html" "${LATEST_ALLURE_ROOT}/index.html"
 
-              <h2 class="section-title">HTML Reports</h2>
-              <ul>
-          EOF
-
-          for browser_dir in "${HTML_DIR}"/*; do
-            if [ -d "${browser_dir}" ]; then
-              browser_name="$(basename "${browser_dir}")"
-              echo "        <li><a href=\"./html/${browser_name}/report.html\">${browser_name}</a></li>" >> "${RUN_DIR}/index.html"
-            fi
-          done
-
-          cat >> "${RUN_DIR}/index.html" <<EOF
-              </ul>
-
-              <h2 class="section-title">Allure Reports</h2>
-              <ul>
-          EOF
-
-          for browser_dir in "${ALLURE_DIR}"/*; do
-            if [ -d "${browser_dir}" ]; then
-              browser_name="$(basename "${browser_dir}")"
-              echo "        <li><a href=\"./allure/${browser_name}/index.html\">${browser_name}</a></li>" >> "${RUN_DIR}/index.html"
-            fi
-          done
-
-          cat >> "${RUN_DIR}/index.html" <<EOF
-              </ul>
-
-              <p><a href="../latest/">Go to Latest Report</a></p>
-            </div>
-          </body>
-          </html>
-          EOF
-
-          cat > "${SITE_DIR}/index.html" <<EOF
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Parabank Playwright Reports</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }
-              h1 { margin-bottom: 8px; }
-              ul { line-height: 1.9; }
-              a { color: #0b57d0; text-decoration: none; }
-              a:hover { text-decoration: underline; }
-              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h1>Parabank Playwright Reports</h1>
-              <ul>
-                <li><a href="./reports/latest/">Latest Report</a></li>
-                <li><a href="./reports/run-${RUN_NUMBER}/">Run ${RUN_NUMBER}</a></li>
-              </ul>
-            </div>
-          </body>
-          </html>
-          EOF
-
-      - name: Deploy reports to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload Allure Pages fragment
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          publish_branch: gh-pages
-          keep_files: true
+          name: allure-pages-fragment
+          path: allure-pages-site
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: Add Pages links to workflow summary
+      - name: Publish Allure link to workflow summary
         shell: bash
         run: |
-          OWNER_NAME="${GITHUB_REPOSITORY_OWNER}"
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          BASE_URL="https://${OWNER_NAME}.github.io/${REPO_NAME}"
-          RUN_URL="${BASE_URL}/reports/run-${{ github.run_number }}/"
-          LATEST_URL="${BASE_URL}/reports/latest/"
+          URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/reports/run-${GITHUB_RUN_NUMBER}/allure/"
+          {
+            echo ""
+            echo "## Allure Report"
+            echo ""
+            echo "- Allure report URL: ${URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-reports-site:
+    name: Deploy reports site
+    needs:
+      - prepare
+      - build-html-report-site
+      - build-allure-report-site
+    if: ${{ github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+
+    environment:
+      name: github-pages
+      url: ${{ format('{0}reports/run-{1}/', steps.deployment.outputs.page_url, github.run_number) }}
+
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download HTML Pages fragment
+        uses: actions/download-artifact@v4
+        with:
+          name: html-pages-fragment
+          path: pages-input/html
+
+      - name: Download Allure Pages fragment
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-pages-fragment
+          path: pages-input/allure
+
+      - name: Merge Pages site content
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SITE_DIR="pages-site"
+          mkdir -p "${SITE_DIR}"
+
+          cp -R pages-input/html/. "${SITE_DIR}/"
+          cp -R pages-input/allure/. "${SITE_DIR}/"
+
+          REPORT_ROOT="${SITE_DIR}/reports"
+          RUN_ROOT="${REPORT_ROOT}/run-${GITHUB_RUN_NUMBER}"
+          LATEST_ROOT="${REPORT_ROOT}/latest"
+
+          mkdir -p "${RUN_ROOT}"
+          mkdir -p "${LATEST_ROOT}"
+          touch "${SITE_DIR}/.nojekyll"
+
+          {
+            echo '<!DOCTYPE html>'
+            echo '<html lang="en">'
+            echo '<head>'
+            echo '  <meta charset="UTF-8">'
+            echo '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            echo "  <title>Parabank Reports - Run ${GITHUB_RUN_NUMBER}</title>"
+            echo '  <style>'
+            echo '    body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }'
+            echo '    .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }'
+            echo '    a { color: #0b57d0; text-decoration: none; }'
+            echo '    a:hover { text-decoration: underline; }'
+            echo '    ul { line-height: 1.9; }'
+            echo '  </style>'
+            echo '</head>'
+            echo '<body>'
+            echo '  <div class="card">'
+            echo "    <h1>Parabank Playwright Reports - Run ${GITHUB_RUN_NUMBER}</h1>"
+            echo '    <ul>'
+            echo '      <li><a href="./html/index.html">HTML Reports</a></li>'
+            echo '      <li><a href="./allure/index.html">Allure Reports</a></li>'
+            echo '    </ul>'
+            echo '  </div>'
+            echo '</body>'
+            echo '</html>'
+          } > "${RUN_ROOT}/index.html"
+
+          {
+            echo '<!DOCTYPE html>'
+            echo '<html lang="en">'
+            echo '<head>'
+            echo '  <meta charset="UTF-8">'
+            echo '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            echo '  <title>Latest Parabank Reports</title>'
+            echo '  <style>'
+            echo '    body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }'
+            echo '    .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }'
+            echo '    a { color: #0b57d0; text-decoration: none; }'
+            echo '    a:hover { text-decoration: underline; }'
+            echo '    ul { line-height: 1.9; }'
+            echo '  </style>'
+            echo '</head>'
+            echo '<body>'
+            echo '  <div class="card">'
+            echo '    <h1>Latest Parabank Playwright Reports</h1>'
+            echo '    <ul>'
+            echo '      <li><a href="./html/index.html">Latest HTML Reports</a></li>'
+            echo '      <li><a href="./allure/index.html">Latest Allure Reports</a></li>'
+            echo '    </ul>'
+            echo '  </div>'
+            echo '</body>'
+            echo '</html>'
+          } > "${LATEST_ROOT}/index.html"
+
+          {
+            echo '<!DOCTYPE html>'
+            echo '<html lang="en">'
+            echo '<head>'
+            echo '  <meta charset="UTF-8">'
+            echo '  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            echo '  <title>Parabank Playwright Reports</title>'
+            echo '  <style>'
+            echo '    body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }'
+            echo '    .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 960px; }'
+            echo '    a { color: #0b57d0; text-decoration: none; }'
+            echo '    a:hover { text-decoration: underline; }'
+            echo '    ul { line-height: 1.9; }'
+            echo '  </style>'
+            echo '</head>'
+            echo '<body>'
+            echo '  <div class="card">'
+            echo '    <h1>Parabank Playwright Reports</h1>'
+            echo '    <ul>'
+            echo '      <li><a href="./reports/latest/">Latest Reports</a></li>'
+            echo "      <li><a href=\"./reports/run-${GITHUB_RUN_NUMBER}/\">Run ${GITHUB_RUN_NUMBER}</a></li>"
+            echo "      <li><a href=\"./reports/run-${GITHUB_RUN_NUMBER}/html/\">Run ${GITHUB_RUN_NUMBER} HTML Reports</a></li>"
+            echo "      <li><a href=\"./reports/run-${GITHUB_RUN_NUMBER}/allure/\">Run ${GITHUB_RUN_NUMBER} Allure Reports</a></li>"
+            echo '    </ul>'
+            echo '  </div>'
+            echo '</body>'
+            echo '</html>'
+          } > "${SITE_DIR}/index.html"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Publish Pages links to workflow summary
+        shell: bash
+        run: |
+          ROOT_URL="${{ steps.deployment.outputs.page_url }}"
+          RUN_URL="${ROOT_URL}reports/run-${{ github.run_number }}/"
+          HTML_URL="${ROOT_URL}reports/run-${{ github.run_number }}/html/"
+          ALLURE_URL="${ROOT_URL}reports/run-${{ github.run_number }}/allure/"
+          LATEST_URL="${ROOT_URL}reports/latest/"
 
           {
             echo ""
             echo "## GitHub Pages Reports"
             echo ""
-            echo "| Link | URL |"
-            echo "|---|---|"
-            echo "| Run Report | [Open Report](${RUN_URL}) |"
-            echo "| Latest Report | [Open Latest](${LATEST_URL}) |"
+            echo "- Run landing page: ${RUN_URL}"
+            echo "- HTML report: ${HTML_URL}"
+            echo "- Allure report: ${ALLURE_URL}"
+            echo "- Latest reports: ${LATEST_URL}"
           } >> "$GITHUB_STEP_SUMMARY"
