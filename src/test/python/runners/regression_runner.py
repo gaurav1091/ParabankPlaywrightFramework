@@ -3,9 +3,11 @@ import sys
 import pytest
 
 
-def main() -> int:
-    return pytest.main(["--suite=regression", *sys.argv[1:]])
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    args = [
+        "--suite=regression",
+    ]
+
+    args.extend(sys.argv[1:])
+
+    raise SystemExit(pytest.main(args))
