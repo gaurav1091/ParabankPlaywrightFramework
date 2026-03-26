@@ -78,6 +78,9 @@ concurrency:
   group: parabank-ci-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.suite || 'smoke' }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   prepare:
     name: Resolve runtime plan
@@ -356,4 +359,145 @@ jobs:
               echo "| BrowserStack Build | ${{ steps.browserstack_meta.outputs.build_name }} |"
               echo "| BrowserStack Session | ${{ steps.browserstack_meta.outputs.session_name }} |"
             fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-pages:
+    name: Publish HTML report to GitHub Pages
+    needs:
+      - prepare
+      - parabank-tests
+    if: ${{ github.event_name != 'pull_request' && needs.parabank-tests.result == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download HTML report artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-html-reports
+          pattern: html-report-${{ needs.prepare.outputs.suite }}-*-${{ needs.prepare.outputs.execution_mode }}-${{ github.run_number }}
+
+      - name: Build Pages site content
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SITE_DIR="site"
+          RUN_NUMBER="${{ github.run_number }}"
+          SUITE="${{ needs.prepare.outputs.suite }}"
+          ENVIRONMENT="${{ needs.prepare.outputs.environment }}"
+          EXECUTION_MODE="${{ needs.prepare.outputs.execution_mode }}"
+          RUN_DIR="${SITE_DIR}/reports/run-${RUN_NUMBER}"
+          LATEST_DIR="${SITE_DIR}/reports/latest"
+
+          mkdir -p "${RUN_DIR}"
+          mkdir -p "${SITE_DIR}/reports"
+
+          shopt -s nullglob
+          for artifact_dir in downloaded-html-reports/*; do
+            artifact_name="$(basename "${artifact_dir}")"
+            browser="$(echo "${artifact_name}" | awk -F- '{print $(NF-2)}')"
+            target_dir="${RUN_DIR}/${browser}"
+
+            mkdir -p "${target_dir}"
+            cp -R "${artifact_dir}/." "${target_dir}/"
+          done
+
+          rm -rf "${LATEST_DIR}"
+          mkdir -p "${LATEST_DIR}"
+          cp -R "${RUN_DIR}/." "${LATEST_DIR}/"
+
+          cat > "${RUN_DIR}/index.html" <<EOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Parabank Report - Run ${RUN_NUMBER}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }
+              h1 { margin-bottom: 8px; }
+              p { margin-top: 0; }
+              ul { line-height: 1.9; }
+              a { color: #0b57d0; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 900px; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>Parabank Playwright Report</h1>
+              <p><strong>Run:</strong> ${RUN_NUMBER}</p>
+              <p><strong>Suite:</strong> ${SUITE}</p>
+              <p><strong>Environment:</strong> ${ENVIRONMENT}</p>
+              <p><strong>Execution Mode:</strong> ${EXECUTION_MODE}</p>
+              <h2>Browser Reports</h2>
+              <ul>
+          EOF
+
+          for browser_dir in "${RUN_DIR}"/*; do
+            if [ -d "${browser_dir}" ]; then
+              browser_name="$(basename "${browser_dir}")"
+              echo "        <li><a href=\"./${browser_name}/report.html\">${browser_name}</a></li>" >> "${RUN_DIR}/index.html"
+            fi
+          done
+
+          cat >> "${RUN_DIR}/index.html" <<EOF
+              </ul>
+              <p><a href="../latest/">Go to Latest Report</a></p>
+            </div>
+          </body>
+          </html>
+          EOF
+
+          cat > "${SITE_DIR}/index.html" <<EOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Parabank Reports</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; color: #222; }
+              h1 { margin-bottom: 8px; }
+              p { margin-top: 0; }
+              ul { line-height: 1.9; }
+              a { color: #0b57d0; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              .card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 900px; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>Parabank Playwright Reports</h1>
+              <ul>
+                <li><a href="./reports/latest/">Latest Report</a></li>
+                <li><a href="./reports/run-${RUN_NUMBER}/">Run ${RUN_NUMBER}</a></li>
+              </ul>
+            </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy reports to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          keep_files: true
+
+      - name: Add Pages link to workflow summary
+        shell: bash
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          OWNER_NAME="${GITHUB_REPOSITORY_OWNER}"
+          RUN_URL="https://${OWNER_NAME}.github.io/${REPO_NAME}/reports/run-${{ github.run_number }}/"
+
+          {
+            echo ""
+            echo "## GitHub Pages Report"
+            echo ""
+            echo "| Link | URL |"
+            echo "|---|---|"
+            echo "| Run Report | ${RUN_URL} |"
           } >> "$GITHUB_STEP_SUMMARY"
