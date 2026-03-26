@@ -3,7 +3,7 @@ import platform
 
 from playwright.sync_api import Browser, Playwright
 
-from com.parabank.automation.config.config_manager import ConfigManager
+from com.parabank.automation.config.browserstack_config import BrowserStackConfig
 from com.parabank.automation.exceptions.driver_initialization_exception import DriverInitializationException
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
 
@@ -12,7 +12,7 @@ class BrowserFactory:
     _LOGGER = FrameworkLogger.get_logger("parabank_framework.browser_factory")
 
     @staticmethod
-    def launch_browser(playwright: Playwright, config_manager: ConfigManager) -> Browser:
+    def launch_browser(playwright: Playwright, config_manager) -> Browser:
         try:
             framework_browser = config_manager.get_browser()
             playwright_browser_name = config_manager.get_playwright_browser_name()
@@ -28,11 +28,22 @@ class BrowserFactory:
 
             current_system = platform.system().lower()
             current_machine = platform.machine().lower()
-
             is_linux_arm = current_system == "linux" and current_machine in {"aarch64", "arm64"}
 
             if disable_channel_flag or is_linux_arm:
                 playwright_channel = None
+
+            if config_manager.is_browserstack_execution():
+                BrowserFactory._LOGGER.info("Launching BrowserStack remote browser...")
+
+                ws_endpoint = BrowserStackConfig.get_ws_endpoint(config_manager)
+                browser = playwright.chromium.connect(ws_endpoint)
+
+                BrowserFactory._LOGGER.info(
+                    "Connected to BrowserStack successfully. Framework browser=%s",
+                    framework_browser,
+                )
+                return browser
 
             BrowserFactory._LOGGER.info(
                 "Launching local Playwright browser. Framework browser=%s | Playwright browser=%s | Channel=%s",

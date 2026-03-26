@@ -29,8 +29,6 @@ def test_api_first_then_ui_validation(test_context, framework_playwright: Playwr
 
     try:
         hybrid_service = HybridAccountsService(accounts_overview_page, api_service)
-
-        # API-first in assertion intent: collect both sources and assert parity
         hybrid_service.load_ui_data(context)
         hybrid_service.load_api_data(context)
 
