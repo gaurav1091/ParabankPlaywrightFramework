@@ -28,16 +28,9 @@ class StartupValidator:
         cls.validate_uri("base.url", config_manager.get_base_url())
         cls.validate_uri("api.base.url", config_manager.get_api_base_url())
 
+        # ✅ Remote Execution Validation (BrowserStack only)
         if config_manager.is_remote_execution():
             cls.validate_remote_provider(config_manager.get_remote_provider())
-
-            if config_manager.is_selenium_grid_execution():
-                cls.validate_uri("selenium.remote.url", config_manager.get_selenium_remote_url())
-                cls.validate_endpoint_reachability(
-                    "Selenium Grid",
-                    cls.build_selenium_status_url(config_manager.get_selenium_remote_url()),
-                    config_manager.get_startup_validation_timeout_seconds(),
-                )
 
             if config_manager.is_browserstack_execution():
                 cls.validate_uri("browserstack.hub.url", config_manager.get_browserstack_hub_url())
@@ -50,6 +43,7 @@ class StartupValidator:
                     config_manager.get_browserstack_browser_version(),
                 )
 
+        # ✅ Numeric validations
         cls.validate_positive("implicit.wait", config_manager.get_implicit_wait())
         cls.validate_positive("explicit.wait", config_manager.get_explicit_wait())
         cls.validate_positive("page.load.timeout", config_manager.get_page_load_timeout())
@@ -72,6 +66,7 @@ class StartupValidator:
             config_manager.get_startup_validation_timeout_seconds(),
         )
 
+        # ✅ Endpoint reachability
         cls.validate_endpoint_reachability(
             "Application Base URL",
             config_manager.get_base_url(),
@@ -119,11 +114,11 @@ class StartupValidator:
     def validate_remote_provider(cls, remote_provider: str) -> None:
         if (
             not remote_provider
-            or remote_provider.strip().lower() not in FrameworkConstants.SUPPORTED_REMOTE_PROVIDERS
+            or remote_provider.strip().lower() != "browserstack"
         ):
             raise StartupValidationException(
                 f"Unsupported remote provider: {remote_provider}. "
-                f"Supported values: selenium-grid, browserstack."
+                f"Supported value: browserstack."
             )
         cls.LOGGER.info("Validated remote provider: %s", remote_provider.strip().lower())
 
@@ -175,18 +170,6 @@ class StartupValidator:
             raise StartupValidationException(
                 f"Failed startup reachability validation for {endpoint_name} at URL: {url}"
             ) from exc
-
-    @classmethod
-    def build_selenium_status_url(cls, selenium_remote_url: str) -> str:
-        trimmed_url = selenium_remote_url.strip()
-
-        if trimmed_url.endswith("/wd/hub"):
-            return trimmed_url.removesuffix("/wd/hub") + "/status"
-
-        if trimmed_url.endswith("/"):
-            return trimmed_url + "status"
-
-        return trimmed_url + "/status"
 
     @classmethod
     def validate_report_directories(cls) -> None:
