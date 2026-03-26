@@ -32,7 +32,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--framework-browser", action="store", default=None, help="Framework browser: chrome, firefox, edge")
     parser.addoption("--framework-headless", action="store", default=None, help="Framework headless mode: true/false")
     parser.addoption("--execution-mode", action="store", default=None, help="Execution mode: local/remote")
-    parser.addoption("--remote-provider", action="store", default=None, help="Remote provider: selenium-grid/browserstack")
+    parser.addoption("--remote-provider", action="store", default=None, help="Remote provider: browserstack")
     parser.addoption("--thread-count", action="store", default=None, help="Parallel worker count equivalent")
     parser.addoption("--data-provider-thread-count", action="store", default=None, help="Parity placeholder with Java framework")
     parser.addoption("--retry-count", action="store", default=None, help="Retry count")
@@ -41,6 +41,25 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--username", action="store", default=None, help="Override application username")
     parser.addoption("--password", action="store", default=None, help="Override application password")
     parser.addoption("--startup-validation", action="store", default=None, help="Enable/disable startup validation true/false")
+
+    parser.addoption(
+        "--browserstack-project-name",
+        action="store",
+        default=None,
+        help="Override BrowserStack project name",
+    )
+    parser.addoption(
+        "--browserstack-build-name",
+        action="store",
+        default=None,
+        help="Override BrowserStack build name",
+    )
+    parser.addoption(
+        "--browserstack-session-name",
+        action="store",
+        default=None,
+        help="Override BrowserStack session name",
+    )
 
     parser.addoption(
         "--suite",
@@ -78,6 +97,9 @@ def _build_overrides(pytestconfig: pytest.Config) -> dict[str, str]:
         "username": pytestconfig.getoption("--username"),
         "password": pytestconfig.getoption("--password"),
         "startup.validation.enabled": pytestconfig.getoption("--startup-validation"),
+        "browserstack.project.name": pytestconfig.getoption("--browserstack-project-name"),
+        "browserstack.build.name": pytestconfig.getoption("--browserstack-build-name"),
+        "browserstack.session.name": pytestconfig.getoption("--browserstack-session-name"),
     }
     return {key: value for key, value in mapping.items() if value is not None}
 
@@ -183,11 +205,13 @@ def pytest_report_header(config: pytest.Config) -> str:
     suite = config.getoption("--suite")
     run_manual = config.getoption("--run-manual")
     run_quarantined = config.getoption("--run-quarantined")
+    execution_mode = config.getoption("--execution-mode") or "configured-default"
 
     return (
         f"Suite selection: {suite} | "
         f"Include manual: {run_manual} | "
-        f"Include quarantined: {run_quarantined}"
+        f"Include quarantined: {run_quarantined} | "
+        f"Execution mode: {execution_mode}"
     )
 
 
@@ -267,6 +291,17 @@ def pytest_configure(config: pytest.Config) -> None:
     logger.info("Retry Enabled    : %s", config_manager.is_retry_enabled())
     logger.info("Retry Count      : %s", config_manager.get_retry_count())
     logger.info("Selected Suite   : %s", config.getoption("--suite"))
+
+    browserstack_project = config_manager.get_property("browserstack.project.name")
+    browserstack_build = config_manager.get_property("browserstack.build.name")
+    browserstack_session = config_manager.get_property("browserstack.session.name")
+
+    if browserstack_project:
+        logger.info("BS Project       : %s", browserstack_project)
+    if browserstack_build:
+        logger.info("BS Build         : %s", browserstack_build)
+    if browserstack_session:
+        logger.info("BS Session       : %s", browserstack_session)
 
 
 @pytest.fixture(scope="session")
@@ -423,7 +458,4 @@ def framework_context_object(
 
 @pytest.fixture(scope="function")
 def test_context(framework_context_object: FrameworkContext) -> FrameworkContext:
-    """
-    Exposed explicitly for pytest-bdd step definitions.
-    """
     return framework_context_object
