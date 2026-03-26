@@ -89,7 +89,6 @@ ParabankPlaywrightFramework/
 │       │   ├── bdd/
 │       │   │   └── ui/
 │       │   ├── direct/
-│       │   │   └── ui/
 │       │   ├── hybrid/
 │       │   │   └── ui_api/
 │       │   ├── hooks/
@@ -148,7 +147,7 @@ pytest --suite=api --env=qa --framework-browser=chrome --framework-headless=fals
 pytest --suite=hybrid --env=qa --framework-browser=chrome --framework-headless=false
 ```
 
-## 🏃 Other Style Runner Commands
+## 🏃 Java-Style Runner Commands
 
 ### Smoke Runner
 ```bash
@@ -183,20 +182,20 @@ python src/test/python/runners/hybrid_runner.py --env=qa --framework-browser=chr
 ## 🏷️ Marker / Suite Taxonomy
 
 ### Suite Markers
-- **smoke** = stable, business-critical validation
-- **regression** = broad end-to-end functional validation
-- **sanity** = framework health and setup verification
+- `smoke` = stable, business-critical validation
+- `regression` = broad end-to-end functional validation
+- `sanity` = framework health and setup verification
 
 ### Functional Markers
-- **ui** = pure UI validation
-- **api** = API-only validation
-- **hybrid** = UI + API validation in same business flow
-- **integration** = broader integration-level flows
+- `ui` = pure UI validation
+- `api` = API-only validation
+- `hybrid` = UI + API validation in same business flow
+- `integration` = broader integration-level flows
 
 ### Control Markers
-- **serial** = non-parallel-safe tests
-- **manual** = excluded from automated runs unless explicitly included
-- **quarantined** = unstable tests temporarily isolated from regular execution
+- `serial` = non-parallel-safe tests
+- `manual` = excluded from automated runs unless explicitly included
+- `quarantined` = unstable tests temporarily isolated from regular execution
 
 ## ⚙️ Configuration Strategy
 
@@ -236,11 +235,11 @@ The hybrid flow follows the same strategy as the Java framework.
 7. Compare UI account ids and API account ids
 
 ### Main Components
-- FrameworkContext
-- AccountsApiService
-- HybridAccountsService
-- CookieUtils
-- CustomerUtils
+- `FrameworkContext`
+- `AccountsApiService`
+- `HybridAccountsService`
+- `CookieUtils`
+- `CustomerUtils`
 
 This is a real hybrid implementation, not a mocked or isolated API-only check.
 
@@ -248,12 +247,13 @@ This is a real hybrid implementation, not a mocked or isolated API-only check.
 
 The API layer follows this structure:
 
-- **ApiClient** → low-level request handling
-- **Services** → business-facing API actions
-- **Models** → reusable API data objects where needed
+`ApiClient` → low-level request handling
+`Services` → business-facing API actions
+`Models` → reusable API data objects where needed
 
-### Current example:
-- **AccountsApiService**
+### Current example
+
+`AccountsApiService`
 
 This keeps request plumbing out of test files.
 
@@ -261,11 +261,11 @@ This keeps request plumbing out of test files.
 
 The Page Object layer encapsulates page behavior and locators.
 
-### Current examples:
-- LoginPage
-- HomePage
-- AccountsOverviewPage
-- AdminPage (diagnostic utility if retained)
+### Current examples
+
+- `LoginPage`
+- `HomePage`
+- `AccountsOverviewPage`
 
 Tests should use page methods instead of raw locators.
 
@@ -309,10 +309,10 @@ Tests should use page methods instead of raw locators.
 ## 🐳 Docker Execution
 
 ### Docker Files
-- Dockerfile
-- docker-compose.yml
-- docker/entrypoint.sh
-- .dockerignore
+- `Dockerfile`
+- `docker-compose.yml`
+- `docker/entrypoint.sh`
+- `.dockerignore`
 
 ### Build Docker Image
 ```bash
@@ -356,11 +356,11 @@ docker compose down
 
 ## 📊 Reports & Artifacts
 
-- **HTML Report**: `test-output/reports/report.html`
-- **Allure Results**: `test-output/allure-results/`
-- **Screenshots**: `test-output/screenshots/`, `test-output/reports/images/`
-- **Traces**: `test-output/traces/`
-- **Videos**: `test-output/videos/`
+- HTML Report: `test-output/reports/report.html`
+- Allure Results: `test-output/allure-results/`
+- Screenshots: `test-output/screenshots/` and `test-output/reports/images/`
+- Traces: `test-output/traces/`
+- Videos: `test-output/videos/`
 
 ## ✅ Startup Validation
 
@@ -381,10 +381,10 @@ This helps fail fast on bad configuration.
 FrameworkContext is the shared state object used across a test flow, especially hybrid tests.
 
 ### Current hybrid state includes:
-- customer_id
-- cookie_header
-- ui_account_ids
-- api_account_ids
+- `customer_id`
+- `cookie_header`
+- `ui_account_ids`
+- `api_account_ids`
 
 This keeps shared data structured and prevents raw plumbing inside tests.
 
@@ -403,7 +403,7 @@ This improves debugging and report usefulness.
 
 ## 🔄 Parallel Execution
 
-Parallel execution is supported using pytest-xdist.
+Parallel execution is supported using `pytest-xdist`.
 
 ### Example:
 ```bash
@@ -444,7 +444,6 @@ Tests marked `serial` should be excluded from parallel runs.
 
 ## 🛣️ Future Enhancement Candidates
 
-- cleanup of legacy diagnostic-only files if no longer needed
 - additional hybrid scenarios
 - BrowserStack / remote execution validation end to end
 - stronger README with screenshots or diagrams as images
