@@ -111,18 +111,11 @@ class ConfigManager:
     def get_remote_provider(self) -> str:
         return (
             self.get_property("remote.provider")
-            or FrameworkConstants.REMOTE_PROVIDER_SELENIUM_GRID
+            or FrameworkConstants.REMOTE_PROVIDER_BROWSERSTACK
         ).strip().lower()
 
-    def is_selenium_grid_execution(self) -> bool:
-        return self.is_remote_execution() and (
-            self.get_remote_provider() == FrameworkConstants.REMOTE_PROVIDER_SELENIUM_GRID
-        )
-
     def is_browserstack_execution(self) -> bool:
-        return self.is_remote_execution() and (
-            self.get_remote_provider() == FrameworkConstants.REMOTE_PROVIDER_BROWSERSTACK
-        )
+        return self.is_remote_execution()
 
     def get_selenium_remote_url(self) -> str:
         return (
@@ -399,14 +392,7 @@ class ConfigManager:
         return value.strip().lower() in {"true", "1", "yes", "y", "on"}
 
     def get_test_data_base_path(self) -> str:
-        """
-        Returns environment-specific test data base directory.
-        Example:
-            qa → src/test/resources/testdata/qa
-            stage → src/test/resources/testdata/stage
-        """
         env = self.get_current_environment()
-
         return f"src/test/resources/testdata/{env}"
 
     def _get_int_property(self, key: str, default: int) -> int:

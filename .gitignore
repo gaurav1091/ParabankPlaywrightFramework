@@ -1,6 +1,7 @@
 # IDE
 .idea/
 *.iml
+.vscode/
 
 # Python
 __pycache__/
@@ -15,6 +16,11 @@ venv/
 
 # OS files
 .DS_Store
+
+# Reports
+test-output/
+allure-results/
+allure-report/
 
 # Test artifacts
 test-output/
