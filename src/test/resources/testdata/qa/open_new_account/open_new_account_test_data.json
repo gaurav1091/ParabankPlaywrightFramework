@@ -1,0 +1,10 @@
+[
+  {
+    "key": "savingsAccount",
+    "accountType": "SAVINGS"
+  },
+  {
+    "key": "checkingAccount",
+    "accountType": "CHECKING"
+  }
+]

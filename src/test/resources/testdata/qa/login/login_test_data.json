@@ -1,14 +1,22 @@
-{
-  "invalidLogin": {
+[
+  {
+    "key": "validUser",
+    "username": "john",
+    "password": "demo"
+  },
+  {
+    "key": "invalidLogin",
     "username": "invalid_user",
     "password": "invalid_pass"
   },
-  "emptyUsername": {
+  {
+    "key": "emptyUsername",
     "username": "",
     "password": "demo"
   },
-  "emptyPassword": {
+  {
+    "key": "emptyPassword",
     "username": "john",
     "password": ""
   }
-}
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "key": "electricityPayment",
+    "payeeName": "Electricity Board",
+    "address": "123 Main Street",
+    "city": "Ghaziabad",
+    "state": "UP",
+    "zipCode": "201001",
+    "phoneNumber": "9876543210",
+    "accountNumber": "12345",
+    "amount": "75"
+  },
+  {
+    "key": "waterBillPayment",
+    "payeeName": "Water Supply Department",
+    "address": "456 Lake Road",
+    "city": "Noida",
+    "state": "UP",
+    "zipCode": "201301",
+    "phoneNumber": "9123456780",
+    "accountNumber": "54321",
+    "amount": "120"
+  }
+]

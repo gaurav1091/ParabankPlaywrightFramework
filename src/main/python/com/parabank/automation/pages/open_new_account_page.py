@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from playwright.sync_api import Locator
 
 from com.parabank.automation.base.base_page import BasePage
@@ -5,11 +7,11 @@ from com.parabank.automation.utils.wait_utils import WaitUtils
 
 
 class OpenNewAccountPage(BasePage):
-    PAGE_HEADING = "xpath=//h1[normalize-space()='Open New Account']"
+    PAGE_HEADING = "css=div#openAccountForm h1.title"
     ACCOUNT_TYPE_DROPDOWN = "#type"
     FROM_ACCOUNT_DROPDOWN = "#fromAccountId"
     OPEN_NEW_ACCOUNT_BUTTON = "button.button, input.button"
-    ACCOUNT_OPENED_HEADING = "xpath=//h1[normalize-space()='Account Opened!']"
+    ACCOUNT_OPENED_HEADING = "css=div#openAccountResult h1.title"
     NEW_ACCOUNT_NUMBER_LINK = "#newAccountId"
 
     def is_page_heading_visible(self) -> bool:
@@ -48,26 +50,9 @@ class OpenNewAccountPage(BasePage):
         )
         return self
 
-    def get_available_account_types(self) -> list[str]:
-        dropdown = self.page.locator(self.ACCOUNT_TYPE_DROPDOWN)
-        dropdown.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-
-        options = dropdown.locator("option")
-        count = options.count()
-
-        account_types: list[str] = []
-        for index in range(count):
-            text = options.nth(index).inner_text().strip()
-            if text:
-                account_types.append(text)
-
-        return account_types
-
     def select_first_available_from_account(self) -> "OpenNewAccountPage":
         self.logger.info("Selecting first available source account.")
+
         dropdown = self.page.locator(self.FROM_ACCOUNT_DROPDOWN)
         dropdown.wait_for(
             state="visible",

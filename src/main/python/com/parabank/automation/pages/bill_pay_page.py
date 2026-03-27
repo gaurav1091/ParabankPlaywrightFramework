@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from playwright.sync_api import Locator
 
 from com.parabank.automation.base.base_page import BasePage
@@ -5,7 +7,7 @@ from com.parabank.automation.utils.wait_utils import WaitUtils
 
 
 class BillPayPage(BasePage):
-    PAGE_HEADING = "xpath=//h1[normalize-space()='Bill Payment Service']"
+    PAGE_HEADING = "css=div#billpayForm h1.title"
 
     PAYEE_NAME_INPUT = "input[name='payee.name']"
     ADDRESS_INPUT = "input[name='payee.address.street']"
@@ -19,10 +21,8 @@ class BillPayPage(BasePage):
     FROM_ACCOUNT_DROPDOWN = "select[name='fromAccountId']"
     SEND_PAYMENT_BUTTON = "input[value='Send Payment']"
 
-    PAYMENT_COMPLETE_HEADING = "xpath=//h1[normalize-space()='Bill Payment Complete']"
-    PAYMENT_RESULT_MESSAGE = "#billpayResult p"
-    PAYEE_NAME_RESULT = "#payeeName"
-    AMOUNT_RESULT = "#amount"
+    PAYMENT_COMPLETE_HEADING = "css=div#billpayResult h1.title"
+    PAYMENT_RESULT_MESSAGE = "css=div#billpayResult p"
 
     def is_page_heading_visible(self) -> bool:
         return self.is_visible(self.PAGE_HEADING)
@@ -99,6 +99,26 @@ class BillPayPage(BasePage):
 
         return self
 
+    def get_first_valid_from_account(self) -> str:
+        dropdown = self.page.locator(self.FROM_ACCOUNT_DROPDOWN)
+        dropdown.wait_for(
+            state="visible",
+            timeout=self.config_manager.get_playwright_action_timeout_millis(),
+        )
+
+        options = dropdown.locator("option")
+        count = options.count()
+
+        for index in range(count):
+            option = options.nth(index)
+            value = (option.get_attribute("value") or "").strip()
+            text = option.inner_text().strip()
+
+            if value and text and text.lower() != "select account":
+                return text
+
+        raise RuntimeError("No valid source account option was found in Bill Pay dropdown.")
+
     def get_selected_from_account(self) -> str:
         dropdown = self.page.locator(self.FROM_ACCOUNT_DROPDOWN)
         dropdown.wait_for(
@@ -148,20 +168,11 @@ class BillPayPage(BasePage):
 
     def get_bill_payment_complete_heading_text(self) -> str:
         self._wait_for_payment_result()
-        return self.get_text(self.PAYMENT_COMPLETE_HEADING)
+        return self.get_text(self.PAYMENT_COMPLETE_HEADING).strip()
 
     def get_bill_payment_result_message(self) -> str:
         self._wait_for_payment_result()
-        return self.get_text(self.PAYMENT_RESULT_MESSAGE)
-
-    def is_payee_name_result_visible(self) -> bool:
-        return self.is_visible(self.PAYEE_NAME_RESULT)
-
-    def get_payee_name_result(self) -> str:
-        return self.get_text(self.PAYEE_NAME_RESULT)
-
-    def get_amount_result(self) -> str:
-        return self.get_text(self.AMOUNT_RESULT)
+        return self.get_text(self.PAYMENT_RESULT_MESSAGE).strip()
 
     def _wait_for_payment_result(self) -> None:
         WaitUtils.wait_for_page_load(self.page, self.config_manager)
@@ -204,7 +215,7 @@ class BillPayPage(BasePage):
             value = (option.get_attribute("value") or "").strip()
             text = option.inner_text().strip()
 
-            if value and text:
+            if value and text and text.lower() != "select account":
                 dropdown.select_option(
                     value=value,
                     timeout=self.config_manager.get_playwright_action_timeout_millis(),
