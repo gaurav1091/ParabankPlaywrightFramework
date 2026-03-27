@@ -2,6 +2,7 @@ import pytest
 from playwright.sync_api import Playwright
 
 from com.parabank.automation.api.services.accounts_api_service import AccountsApiService
+from com.parabank.automation.assertions.api_assertions import ApiAssertions
 from com.parabank.automation.hybrid.services.hybrid_accounts_service import HybridAccountsService
 from com.parabank.automation.pages.login_page import LoginPage
 
@@ -29,10 +30,10 @@ def test_api_first_then_ui_validation(test_context, framework_playwright: Playwr
         hybrid_service.load_ui_data(context)
         hybrid_service.load_api_data(context)
 
-        assert sorted(context.api_account_ids) == sorted(context.ui_account_ids), (
-            "API-first validation failed.\n"
-            f"API Account IDs: {sorted(context.api_account_ids)}\n"
-            f"UI Account IDs : {sorted(context.ui_account_ids)}"
+        ApiAssertions.assert_collections_match_ignoring_order(
+            context.api_account_ids,
+            context.ui_account_ids,
+            "API-first validation failed.",
         )
     finally:
         api_service.dispose()
