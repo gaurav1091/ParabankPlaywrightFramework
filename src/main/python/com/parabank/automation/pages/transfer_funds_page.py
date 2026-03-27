@@ -48,6 +48,16 @@ class TransferFundsPage(BasePage):
         self.clear_and_enter_text(self.AMOUNT_INPUT, amount)
         return self
 
+    def select_from_account(self, account_number: str) -> "TransferFundsPage":
+        self.logger.info("Selecting source account for transfer: %s", account_number)
+        self.select_dropdown_by_visible_text(self.FROM_ACCOUNT_DROPDOWN, account_number)
+        return self
+
+    def select_to_account(self, account_number: str) -> "TransferFundsPage":
+        self.logger.info("Selecting destination account for transfer: %s", account_number)
+        self.select_dropdown_by_visible_text(self.TO_ACCOUNT_DROPDOWN, account_number)
+        return self
+
     def select_first_available_accounts(self) -> "TransferFundsPage":
         self.logger.info("Selecting first available valid source and destination accounts.")
 
@@ -97,6 +107,25 @@ class TransferFundsPage(BasePage):
     def transfer_funds(self, amount: str) -> "TransferFundsPage":
         self.logger.info("Executing transfer flow for amount: %s", amount)
         return self.enter_amount(amount).select_first_available_accounts().click_transfer_button()
+
+    def transfer_funds_between_accounts(
+        self,
+        amount: str,
+        from_account: str,
+        to_account: str,
+    ) -> "TransferFundsPage":
+        self.logger.info(
+            "Executing transfer flow with explicit accounts. Amount=%s | From=%s | To=%s",
+            amount,
+            from_account,
+            to_account,
+        )
+        return (
+            self.enter_amount(amount)
+            .select_from_account(from_account)
+            .select_to_account(to_account)
+            .click_transfer_button()
+        )
 
     def is_transfer_successful(self) -> bool:
         return self.is_visible(self.TRANSFER_COMPLETE_HEADING) and self.is_visible(self.TRANSFER_RESULT_MESSAGE)

@@ -86,6 +86,14 @@ class BillPayPage(BasePage):
         self.select_first_valid_dropdown_option(self.FROM_ACCOUNT_DROPDOWN, ignore_texts={"Select Account"})
         return self
 
+    def select_from_account(self, account_number: str) -> "BillPayPage":
+        self.logger.info("Selecting source account for bill pay: %s", account_number)
+        self.select_dropdown_by_visible_text(self.FROM_ACCOUNT_DROPDOWN, account_number)
+        return self
+
+    def get_available_from_accounts(self) -> list[str]:
+        return self.get_dropdown_options_text(self.FROM_ACCOUNT_DROPDOWN)
+
     def get_first_valid_from_account(self) -> str:
         options = self.get_dropdown_options_text(self.FROM_ACCOUNT_DROPDOWN)
         for option in options:
@@ -127,6 +135,37 @@ class BillPayPage(BasePage):
             .enter_verify_account_number(account_number)
             .enter_amount(amount)
             .select_first_valid_from_account()
+            .click_send_payment_button()
+        )
+
+    def submit_bill_payment_from_specific_account(
+        self,
+        payee_name: str,
+        address: str,
+        city: str,
+        state: str,
+        zip_code: str,
+        phone_number: str,
+        account_number: str,
+        amount: str,
+        from_account: str,
+    ) -> "BillPayPage":
+        self.logger.info(
+            "Submitting bill payment for payee=%s using specific source account=%s",
+            payee_name,
+            from_account,
+        )
+        return (
+            self.enter_payee_name(payee_name)
+            .enter_address(address)
+            .enter_city(city)
+            .enter_state(state)
+            .enter_zip_code(zip_code)
+            .enter_phone_number(phone_number)
+            .enter_account_number(account_number)
+            .enter_verify_account_number(account_number)
+            .enter_amount(amount)
+            .select_from_account(from_account)
             .click_send_payment_button()
         )
 
