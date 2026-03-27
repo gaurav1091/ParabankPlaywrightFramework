@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from playwright.sync_api import Page
 
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
@@ -69,6 +71,36 @@ class UiAssertions:
             ) from exc
 
     @classmethod
+    def assert_current_url_not_contains(
+        cls,
+        page: Page,
+        unexpected_partial_url: str,
+        failure_message: str,
+        diagnostic_name: str,
+    ) -> None:
+        actual_url = page.url
+
+        try:
+            CommonAssertions.assert_not_contains(
+                actual_url,
+                unexpected_partial_url,
+                failure_message,
+            )
+            cls.LOGGER.info(
+                "UI assertion passed: current URL does not contain unexpected value. UnexpectedPartial=%s | ActualURL=%s",
+                unexpected_partial_url,
+                actual_url,
+            )
+        except AssertionError as exc:
+            diagnostics = FailureDiagnosticsUtils.capture_page_diagnostics(page, diagnostic_name)
+            raise AssertionError(
+                f"{failure_message} | Unexpected URL fragment: {unexpected_partial_url!r} "
+                f"| Actual URL: {actual_url!r} "
+                f"| Screenshot: {diagnostics['screenshot_path']} "
+                f"| Title: {diagnostics['title']}"
+            ) from exc
+
+    @classmethod
     def assert_element_visible(
         cls,
         page: Page,
@@ -119,6 +151,31 @@ class UiAssertions:
             diagnostics = FailureDiagnosticsUtils.capture_page_diagnostics(page, diagnostic_name)
             raise AssertionError(
                 f"{failure_message} | Expected text: {expected_text!r} | Actual text: {actual_text!r} "
+                f"| Screenshot: {diagnostics['screenshot_path']} "
+                f"| URL: {diagnostics['url']}"
+            ) from exc
+
+    @classmethod
+    def assert_text_not_empty(
+        cls,
+        page: Page,
+        actual_text: str,
+        failure_message: str,
+        diagnostic_name: str,
+    ) -> None:
+        try:
+            CommonAssertions.assert_not_empty(
+                actual_text,
+                failure_message,
+            )
+            cls.LOGGER.info(
+                "UI assertion passed: text is not empty. Actual=%s",
+                actual_text,
+            )
+        except AssertionError as exc:
+            diagnostics = FailureDiagnosticsUtils.capture_page_diagnostics(page, diagnostic_name)
+            raise AssertionError(
+                f"{failure_message} | Actual text: {actual_text!r} "
                 f"| Screenshot: {diagnostics['screenshot_path']} "
                 f"| URL: {diagnostics['url']}"
             ) from exc

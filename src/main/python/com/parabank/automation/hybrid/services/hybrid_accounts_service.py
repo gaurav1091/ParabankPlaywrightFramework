@@ -1,4 +1,5 @@
 from com.parabank.automation.api.services.accounts_api_service import AccountsApiService
+from com.parabank.automation.assertions.api_assertions import ApiAssertions
 from com.parabank.automation.context.framework_context import FrameworkContext
 from com.parabank.automation.pages.accounts_overview_page import AccountsOverviewPage
 from com.parabank.automation.utils.cookie_utils import CookieUtils
@@ -49,17 +50,18 @@ class HybridAccountsService:
         )
 
     def validate_ui_vs_api(self, context: FrameworkContext) -> None:
-        if not context.ui_account_ids:
-            raise AssertionError("UI account list should not be empty.")
-
-        if not context.api_account_ids:
-            raise AssertionError("API account list should not be empty.")
-
-        if sorted(context.ui_account_ids) != sorted(context.api_account_ids):
-            raise AssertionError(
-                "Mismatch between UI and API account ids.\n"
-                f"UI Account IDs : {sorted(context.ui_account_ids)}\n"
-                f"API Account IDs: {sorted(context.api_account_ids)}"
-            )
+        ApiAssertions.assert_list_not_empty(
+            context.ui_account_ids,
+            "UI account list should not be empty.",
+        )
+        ApiAssertions.assert_list_not_empty(
+            context.api_account_ids,
+            "API account list should not be empty.",
+        )
+        ApiAssertions.assert_collections_match_ignoring_order(
+            context.ui_account_ids,
+            context.api_account_ids,
+            "Mismatch between UI and API account ids.",
+        )
 
         self._logger.info("Hybrid validation passed successfully. UI and API accounts match.")
