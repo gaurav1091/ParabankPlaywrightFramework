@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from com.parabank.automation.base.base_page import BasePage
 
 
@@ -70,21 +72,118 @@ class FindTransactionsPage(BasePage):
     def is_at_least_one_transaction_displayed(self) -> bool:
         return self.get_transaction_row_count() > 0
 
+    def get_transaction_rows_data(self) -> list[dict[str, str]]:
+        self.logger.info("Reading transaction result rows from Find Transactions table.")
+
+        rows = self.page.locator(self.TRANSACTION_ROWS)
+        row_count = rows.count()
+
+        transactions: list[dict[str, str]] = []
+
+        for index in range(row_count):
+            row = rows.nth(index)
+            cells = row.locator("td")
+            cell_count = cells.count()
+
+            if cell_count < 4:
+                self.logger.info(
+                    "Skipping Find Transactions row because it has fewer than 4 cells. RowIndex=%s | CellCount=%s",
+                    index,
+                    cell_count,
+                )
+                continue
+
+            row_data = {
+                "date": cells.nth(0).inner_text().strip(),
+                "transaction": cells.nth(1).inner_text().strip(),
+                "debit": cells.nth(2).inner_text().strip(),
+                "credit": cells.nth(3).inner_text().strip(),
+            }
+            transactions.append(row_data)
+
+            self.logger.info(
+                "Transaction result row captured. RowIndex=%s | Date=%s | Transaction=%s | Debit=%s | Credit=%s",
+                index,
+                row_data["date"],
+                row_data["transaction"],
+                row_data["debit"],
+                row_data["credit"],
+            )
+
+        return transactions
+
+    def get_displayed_transaction_amounts(self) -> list[Decimal]:
+        transactions = self.get_transaction_rows_data()
+        amounts: list[Decimal] = []
+
+        for transaction in transactions:
+            debit_value = self._parse_currency_or_none(transaction["debit"])
+            credit_value = self._parse_currency_or_none(transaction["credit"])
+
+            if debit_value is not None:
+                amounts.append(abs(debit_value))
+            if credit_value is not None:
+                amounts.append(abs(credit_value))
+
+        self.logger.info("Displayed transaction amounts parsed from results: %s", amounts)
+        return amounts
+
     def is_matching_amount_displayed(self, amount: str) -> bool:
-        normalized_amount = amount.strip()
-        possible_values = {
-            f"${normalized_amount}",
-            f"${normalized_amount}.00",
-        }
+        expected_amount = Decimal(str(amount)).quantize(Decimal("0.01"))
+        displayed_amounts = self.get_displayed_transaction_amounts()
 
-        cells = self.page.locator("#transactionTable tbody td")
-        count = cells.count()
-
-        for index in range(count):
-            cell_text = cells.nth(index).inner_text().strip()
-            if cell_text in possible_values:
-                self.logger.info("Found matching transaction amount in results: %s", cell_text)
+        for displayed_amount in displayed_amounts:
+            if displayed_amount == expected_amount:
+                self.logger.info("Found matching transaction amount in results: %s", displayed_amount)
                 return True
 
-        self.logger.info("No matching transaction amount found in results for amount: %s", amount)
+        self.logger.info("No matching transaction amount found in results for amount: %s", expected_amount)
         return False
+
+    def are_all_displayed_transaction_amounts_matching(self, amount: str) -> bool:
+        expected_amount = Decimal(str(amount)).quantize(Decimal("0.01"))
+        displayed_amounts = self.get_displayed_transaction_amounts()
+
+        if not displayed_amounts:
+            self.logger.info("No displayed transaction amounts found for validation.")
+            return False
+
+        all_match = all(displayed_amount == expected_amount for displayed_amount in displayed_amounts)
+        self.logger.info(
+            "All displayed transaction amounts matching expected=%s ? %s | Displayed=%s",
+            expected_amount,
+            all_match,
+            displayed_amounts,
+        )
+        return all_match
+
+    def is_transaction_search_result_correct(self, amount: str) -> bool:
+        return (
+            self.is_transactions_table_visible()
+            and self.is_at_least_one_transaction_displayed()
+            and self.is_matching_amount_displayed(amount)
+            and self.are_all_displayed_transaction_amounts_matching(amount)
+        )
+
+    def _parse_currency_or_none(self, currency_value: str) -> Decimal | None:
+        if currency_value is None:
+            return None
+
+        cleaned = currency_value.strip()
+        if not cleaned:
+            return None
+
+        normalized = (
+            cleaned.replace("$", "")
+            .replace(",", "")
+            .replace("(", "-")
+            .replace(")", "")
+        )
+
+        if not normalized:
+            return None
+
+        try:
+            return Decimal(normalized).quantize(Decimal("0.01"))
+        except (InvalidOperation, ValueError):
+            return None
