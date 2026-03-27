@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from com.parabank.automation.base.base_page import BasePage
 from com.parabank.automation.utils.wait_utils import WaitUtils
 
@@ -13,6 +15,14 @@ class LoginPage(BasePage):
     def open_login_page(self) -> None:
         self.logger.info("Opening login page.")
         self.open_base_url()
+        self.wait_for_page_ready()
+
+    def is_login_page_displayed(self) -> bool:
+        return (
+            self.is_username_field_visible()
+            and self.is_password_field_visible()
+            and self.is_login_button_visible()
+        )
 
     def is_username_field_visible(self) -> bool:
         return self.is_visible(self.USERNAME_INPUT)
@@ -35,6 +45,7 @@ class LoginPage(BasePage):
         self.logger.info("Clicking login button.")
         self.click(self.LOGIN_BUTTON)
         WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
     def login(self, username: str, password: str) -> "HomePage":
         self.logger.info("Performing login flow.")
@@ -44,6 +55,13 @@ class LoginPage(BasePage):
 
         from com.parabank.automation.pages.home_page import HomePage
         return HomePage(self.page, self.config_manager)
+
+    def login_expecting_failure(self, username: str, password: str) -> "LoginPage":
+        self.logger.info("Performing login flow expecting failure.")
+        self.enter_username(username)
+        self.enter_password(password)
+        self.click_login()
+        return self
 
     def get_error_message(self) -> str:
         return self.get_text(self.ERROR_MESSAGE)
