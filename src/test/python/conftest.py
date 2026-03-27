@@ -1,5 +1,15 @@
+import sys
 import re
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+SRC_MAIN_PYTHON = PROJECT_ROOT / "src" / "main" / "python"
+SRC_TEST_PYTHON = PROJECT_ROOT / "src" / "test" / "python"
+
+for path in (SRC_MAIN_PYTHON, SRC_TEST_PYTHON):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 import allure
 import pytest
@@ -19,7 +29,13 @@ from com.parabank.automation.validation.startup_validator import StartupValidato
 
 
 pytest_plugins = (
-    "stepdefinitions.ui.login_accounts_overview_steps",
+    "stepdefinitions.ui.application_launch_steps",
+    "stepdefinitions.ui.login_steps",
+    "stepdefinitions.ui.accounts_overview_steps",
+    "stepdefinitions.ui.open_new_account_steps",
+    "stepdefinitions.ui.transfer_funds_steps",
+    "stepdefinitions.ui.bill_pay_steps",
+    "stepdefinitions.ui.find_transactions_steps",
 )
 
 LOGGER = FrameworkLogger.get_logger("parabank_framework.conftest")

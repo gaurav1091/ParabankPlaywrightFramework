@@ -1,0 +1,10 @@
+[
+  {
+    "key": "smallTransfer",
+    "amount": "50"
+  },
+  {
+    "key": "mediumTransfer",
+    "amount": "125"
+  }
+]

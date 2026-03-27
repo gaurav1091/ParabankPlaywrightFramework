@@ -1,0 +1,10 @@
+[
+  {
+    "key": "smallTransactionSearch",
+    "amount": "50"
+  },
+  {
+    "key": "mediumTransactionSearch",
+    "amount": "125"
+  }
+]
