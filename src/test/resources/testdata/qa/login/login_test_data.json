@@ -1,22 +1,22 @@
 [
   {
     "key": "validUser",
-    "username": "john",
-    "password": "demo"
+    "username": "${PARABANK_USERNAME}",
+    "password": "${PARABANK_PASSWORD}"
   },
   {
-    "key": "invalidLogin",
-    "username": "invalid_user",
-    "password": "invalid_pass"
+    "key": "invalidUser",
+    "username": "invalidUser",
+    "password": "invalidPass"
   },
   {
-    "key": "emptyUsername",
-    "username": "",
-    "password": "demo"
+    "key": "validUserWrongPassword",
+    "username": "${PARABANK_USERNAME}",
+    "password": "wrongPass"
   },
   {
-    "key": "emptyPassword",
-    "username": "john",
-    "password": ""
+    "key": "wrongUserValidPassword",
+    "username": "wrongUser",
+    "password": "${PARABANK_PASSWORD}"
   }
 ]
