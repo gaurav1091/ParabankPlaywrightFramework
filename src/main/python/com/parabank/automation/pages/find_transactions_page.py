@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from com.parabank.automation.base.base_page import BasePage
-from com.parabank.automation.utils.wait_utils import WaitUtils
 
 
 class FindTransactionsPage(BasePage):
@@ -35,44 +36,21 @@ class FindTransactionsPage(BasePage):
 
     def select_account(self, account_number: str) -> "FindTransactionsPage":
         self.logger.info("Selecting account for transaction search: %s", account_number)
-        dropdown = self.page.locator(self.ACCOUNT_DROPDOWN)
-        dropdown.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-        dropdown.select_option(
-            label=account_number,
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
+        self.select_dropdown_by_visible_text(self.ACCOUNT_DROPDOWN, account_number)
         return self
 
     def get_available_accounts(self) -> list[str]:
-        dropdown = self.page.locator(self.ACCOUNT_DROPDOWN)
-        dropdown.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-
-        options = dropdown.locator("option")
-        count = options.count()
-
-        accounts: list[str] = []
-        for index in range(count):
-            text = options.nth(index).inner_text().strip()
-            if text:
-                accounts.append(text)
-
-        return accounts
+        return self.get_dropdown_options_text(self.ACCOUNT_DROPDOWN)
 
     def enter_amount(self, amount: str) -> "FindTransactionsPage":
         self.logger.info("Entering amount for transaction search: %s", amount)
-        self.enter_text(self.AMOUNT_INPUT, amount)
+        self.clear_and_enter_text(self.AMOUNT_INPUT, amount)
         return self
 
     def click_find_by_amount_button(self) -> "FindTransactionsPage":
         self.logger.info("Clicking Find Transactions by amount.")
         self.click(self.FIND_BY_AMOUNT_BUTTON)
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
         return self
 
     def find_transactions_by_amount(self, account_number: str, amount: str) -> "FindTransactionsPage":

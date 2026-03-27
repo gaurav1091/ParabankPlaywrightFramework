@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from com.parabank.automation.base.base_page import BasePage
-from com.parabank.automation.utils.wait_utils import WaitUtils
 
 
 class HomePage(BasePage):
@@ -9,7 +10,10 @@ class HomePage(BasePage):
     BILL_PAY_LINK = "#leftPanel a[href*='billpay.htm']"
     FIND_TRANSACTIONS_LINK = "#leftPanel a[href*='findtrans.htm']"
     LOG_OUT_LINK = "#leftPanel a[href*='logout.htm']"
-    WELCOME_PANEL = "#leftPanel"
+    LEFT_PANEL = "#leftPanel"
+
+    def is_left_panel_visible(self) -> bool:
+        return self.is_visible(self.LEFT_PANEL)
 
     def is_logout_link_visible(self) -> bool:
         return self.is_visible(self.LOG_OUT_LINK)
@@ -29,21 +33,22 @@ class HomePage(BasePage):
     def is_find_transactions_link_visible(self) -> bool:
         return self.is_visible(self.FIND_TRANSACTIONS_LINK)
 
-    def is_left_panel_visible(self) -> bool:
-        return self.is_visible(self.WELCOME_PANEL)
-
     def is_home_page_loaded(self) -> bool:
         return (
             self.is_left_panel_visible()
             and self.is_logout_link_visible()
             and self.is_accounts_overview_link_visible()
+            and self.is_open_new_account_link_visible()
+            and self.is_transfer_funds_link_visible()
+            and self.is_bill_pay_link_visible()
+            and self.is_find_transactions_link_visible()
         )
 
     def go_to_accounts_overview(self) -> "AccountsOverviewPage":
         self.logger.info("Navigating to Accounts Overview page.")
         self.click(self.ACCOUNTS_OVERVIEW_LINK)
         self.wait_for_url_contains("overview")
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
         from com.parabank.automation.pages.accounts_overview_page import AccountsOverviewPage
         return AccountsOverviewPage(self.page, self.config_manager)
@@ -52,7 +57,7 @@ class HomePage(BasePage):
         self.logger.info("Navigating to Open New Account page.")
         self.click(self.OPEN_NEW_ACCOUNT_LINK)
         self.wait_for_url_contains("openaccount")
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
         from com.parabank.automation.pages.open_new_account_page import OpenNewAccountPage
         return OpenNewAccountPage(self.page, self.config_manager)
@@ -61,7 +66,7 @@ class HomePage(BasePage):
         self.logger.info("Navigating to Transfer Funds page.")
         self.click(self.TRANSFER_FUNDS_LINK)
         self.wait_for_url_contains("transfer")
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
         from com.parabank.automation.pages.transfer_funds_page import TransferFundsPage
         return TransferFundsPage(self.page, self.config_manager)
@@ -70,7 +75,7 @@ class HomePage(BasePage):
         self.logger.info("Navigating to Bill Pay page.")
         self.click(self.BILL_PAY_LINK)
         self.wait_for_url_contains("billpay")
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
         from com.parabank.automation.pages.bill_pay_page import BillPayPage
         return BillPayPage(self.page, self.config_manager)
@@ -79,7 +84,7 @@ class HomePage(BasePage):
         self.logger.info("Navigating to Find Transactions page.")
         self.click(self.FIND_TRANSACTIONS_LINK)
         self.wait_for_url_contains("findtrans")
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
         from com.parabank.automation.pages.find_transactions_page import FindTransactionsPage
         return FindTransactionsPage(self.page, self.config_manager)
@@ -88,7 +93,7 @@ class HomePage(BasePage):
         self.logger.info("Logging out from application.")
         self.click(self.LOG_OUT_LINK)
         self.wait_for_url_contains("index")
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
+        self.wait_for_page_ready()
 
         from com.parabank.automation.pages.login_page import LoginPage
         return LoginPage(self.page, self.config_manager)

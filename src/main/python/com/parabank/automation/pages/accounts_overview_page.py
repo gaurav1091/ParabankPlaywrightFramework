@@ -3,16 +3,19 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 
 from com.parabank.automation.base.base_page import BasePage
-from com.parabank.automation.utils.wait_utils import WaitUtils
 
 
 class AccountsOverviewPage(BasePage):
     PAGE_HEADING = "xpath=//h1[normalize-space()='Accounts Overview']"
     ACCOUNTS_TABLE = "#accountTable"
     ACCOUNT_ROWS = "#accountTable tbody tr"
+    ACCOUNT_NUMBER_LINKS = "#accountTable tbody tr td:first-child a"
 
     def is_page_heading_visible(self) -> bool:
         return self.is_visible(self.PAGE_HEADING)
+
+    def get_page_heading_text(self) -> str:
+        return self.get_text(self.PAGE_HEADING)
 
     def is_accounts_table_visible(self) -> bool:
         return self.is_visible(self.ACCOUNTS_TABLE)
@@ -21,10 +24,13 @@ class AccountsOverviewPage(BasePage):
         return self.is_page_heading_visible() and self.is_accounts_table_visible()
 
     def get_account_row_count(self) -> int:
-        return self.get_count(self.ACCOUNT_ROWS)
+        return self.get_count(self.ACCOUNTS_TABLE + " tbody tr")
+
+    def get_account_link_count(self) -> int:
+        return self.get_count(self.ACCOUNT_NUMBER_LINKS)
 
     def has_at_least_one_account(self) -> bool:
-        return self.get_account_row_count() > 0
+        return self.get_account_link_count() > 0
 
     def get_account_numbers(self) -> list[str]:
         rows = self.page.locator(self.ACCOUNT_ROWS)
@@ -38,15 +44,16 @@ class AccountsOverviewPage(BasePage):
                 continue
 
             account_number = cells.nth(0).inner_text().strip()
-            if account_number:
+            if account_number and account_number.lower() != "total":
                 account_numbers.append(account_number)
 
+        self.logger.info("Account numbers found on Accounts Overview page: %s", account_numbers)
         return account_numbers
 
     def get_accounts_summary(self) -> list[dict[str, object]]:
         self.logger.info("Reading account summary from Accounts Overview table.")
+        self.wait_for_page_ready()
 
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
         rows = self.page.locator(self.ACCOUNT_ROWS)
         row_count = rows.count()
 
@@ -69,10 +76,11 @@ class AccountsOverviewPage(BasePage):
             balance_text = cells.nth(1).inner_text().strip()
             available_balance_text = cells.nth(2).inner_text().strip()
 
-            if not account_number:
+            if not account_number or account_number.lower() == "total":
                 self.logger.info(
-                    "Skipping Accounts Overview row because account number is blank. RowIndex=%s",
+                    "Skipping Accounts Overview row because it is not an account row. RowIndex=%s | Account=%s",
                     index,
+                    account_number,
                 )
                 continue
 
@@ -108,102 +116,32 @@ class AccountsOverviewPage(BasePage):
 
         return accounts
 
-    def get_candidate_source_accounts_for_new_account(
-        self,
-        minimum_amount: float | int | str,
-        preferred_minimum_amount: float | int | str = 100,
-        anomaly_balance_threshold: float | int | str = 100000,
-    ) -> list[str]:
-        minimum_balance = Decimal(str(minimum_amount))
-        preferred_minimum_balance = Decimal(str(preferred_minimum_amount))
-        anomaly_threshold = Decimal(str(anomaly_balance_threshold))
+    def get_first_account_number(self) -> str:
+        account_numbers = self.get_account_numbers()
+        if not account_numbers:
+            raise RuntimeError("No account numbers are available on Accounts Overview page.")
+        return account_numbers[0]
 
+    def get_first_healthy_account_number(self, minimum_available_balance: float | int | str = 1) -> str:
+        minimum_balance = Decimal(str(minimum_available_balance))
         accounts = self.get_accounts_summary()
 
-        eligible_accounts: list[dict[str, object]] = []
         for account in accounts:
             available_balance = account["available_balance"]
-            if not isinstance(available_balance, Decimal):
-                continue
+            if isinstance(available_balance, Decimal) and available_balance >= minimum_balance:
+                selected_account = str(account["account_number"])
+                self.logger.info(
+                    "Selected healthy account from Accounts Overview. Account=%s | Available=%s",
+                    selected_account,
+                    available_balance,
+                )
+                return selected_account
 
-            if available_balance < minimum_balance:
-                continue
-
-            if available_balance <= Decimal("0"):
-                continue
-
-            eligible_accounts.append(account)
-
-        if not eligible_accounts:
-            available_snapshot = ", ".join(
-                f"{account['account_number']}={account['available_balance_text']}" for account in accounts
-            ) or "No accounts found"
-
-            raise AssertionError(
-                "No account has sufficient available balance for opening a new account. "
-                f"Required minimum={minimum_balance} | Accounts={available_snapshot}"
-            )
-
-        normal_accounts = [
-            account
-            for account in eligible_accounts
-            if isinstance(account["available_balance"], Decimal)
-            and account["available_balance"] < anomaly_threshold
-        ]
-
-        preferred_accounts = [
-            account
-            for account in normal_accounts
-            if isinstance(account["available_balance"], Decimal)
-            and account["available_balance"] >= preferred_minimum_balance
-        ]
-
-        fallback_accounts = [
-            account for account in normal_accounts
-            if account not in preferred_accounts
-        ]
-
-        anomalous_accounts = [
-            account for account in eligible_accounts
-            if account not in normal_accounts
-        ]
-
-        preferred_accounts.sort(
-            key=lambda account: (
-                account["available_balance"],
-                str(account["account_number"]),
-            )
+        raise AssertionError(
+            f"No account found with minimum available balance >= {minimum_balance} on Accounts Overview page."
         )
-        fallback_accounts.sort(
-            key=lambda account: (
-                account["available_balance"],
-                str(account["account_number"]),
-            )
-        )
-        anomalous_accounts.sort(
-            key=lambda account: (
-                account["available_balance"],
-                str(account["account_number"]),
-            )
-        )
-
-        ordered_candidates = preferred_accounts + fallback_accounts + anomalous_accounts
-        candidate_numbers = [str(account["account_number"]) for account in ordered_candidates]
-
-        self.logger.info(
-            "Candidate source accounts for opening new account: %s",
-            ", ".join(
-                f"{account['account_number']}={account['available_balance_text']}"
-                for account in ordered_candidates
-            ),
-        )
-
-        return candidate_numbers
 
     def _parse_currency(self, currency_value: str) -> Decimal:
-        if currency_value is None:
-            raise AssertionError("Currency value is None and cannot be parsed.")
-
         normalized = (
             currency_value.strip()
             .replace("$", "")

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from playwright.sync_api import Locator
-
 from com.parabank.automation.base.base_page import BasePage
-from com.parabank.automation.utils.wait_utils import WaitUtils
 
 
 class BillPayPage(BasePage):
@@ -86,54 +83,25 @@ class BillPayPage(BasePage):
 
     def select_first_valid_from_account(self) -> "BillPayPage":
         self.logger.info("Selecting first valid source account for bill pay.")
-
-        dropdown = self.page.locator(self.FROM_ACCOUNT_DROPDOWN)
-        dropdown.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-
-        selected_value = self._select_first_valid_option(dropdown)
-        if selected_value is None:
-            raise RuntimeError("No valid account available in Bill Pay from-account dropdown.")
-
+        self.select_first_valid_dropdown_option(self.FROM_ACCOUNT_DROPDOWN, ignore_texts={"Select Account"})
         return self
 
     def get_first_valid_from_account(self) -> str:
-        dropdown = self.page.locator(self.FROM_ACCOUNT_DROPDOWN)
-        dropdown.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-
-        options = dropdown.locator("option")
-        count = options.count()
-
-        for index in range(count):
-            option = options.nth(index)
-            value = (option.get_attribute("value") or "").strip()
-            text = option.inner_text().strip()
-
-            if value and text and text.lower() != "select account":
-                return text
-
+        options = self.get_dropdown_options_text(self.FROM_ACCOUNT_DROPDOWN)
+        for option in options:
+            if option.strip() and option.strip().lower() != "select account":
+                return option
         raise RuntimeError("No valid source account option was found in Bill Pay dropdown.")
 
     def get_selected_from_account(self) -> str:
-        dropdown = self.page.locator(self.FROM_ACCOUNT_DROPDOWN)
-        dropdown.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-
-        selected_text = dropdown.locator("option:checked").inner_text().strip()
+        selected_text = self.get_selected_dropdown_text(self.FROM_ACCOUNT_DROPDOWN)
         self.logger.info("Selected bill-pay source account: %s", selected_text)
         return selected_text
 
     def click_send_payment_button(self) -> "BillPayPage":
         self.logger.info("Clicking Send Payment button.")
         self.click(self.SEND_PAYMENT_BUTTON)
-        self._wait_for_payment_result()
+        self.wait_for_page_ready()
         return self
 
     def submit_bill_payment(
@@ -163,40 +131,18 @@ class BillPayPage(BasePage):
         )
 
     def is_bill_payment_successful(self) -> bool:
-        self._wait_for_payment_result()
         return self.is_visible(self.PAYMENT_COMPLETE_HEADING) and self.is_visible(self.PAYMENT_RESULT_MESSAGE)
 
     def get_bill_payment_complete_heading_text(self) -> str:
-        self._wait_for_payment_result()
         return self.get_text(self.PAYMENT_COMPLETE_HEADING).strip()
 
     def get_bill_payment_result_message(self) -> str:
-        self._wait_for_payment_result()
         return self.get_text(self.PAYMENT_RESULT_MESSAGE).strip()
 
-    def _wait_for_payment_result(self) -> None:
-        WaitUtils.wait_for_page_load(self.page, self.config_manager)
-        self.page.locator(self.PAYMENT_COMPLETE_HEADING).wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_navigation_timeout_millis(),
-        )
-        self.page.locator(self.PAYMENT_RESULT_MESSAGE).wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_navigation_timeout_millis(),
-        )
-
     def _fill_and_verify(self, selector: str, value: str) -> None:
-        locator = self.page.locator(selector)
-        locator.wait_for(
-            state="visible",
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
-        locator.fill(
-            value,
-            timeout=self.config_manager.get_playwright_action_timeout_millis(),
-        )
+        self.clear_and_enter_text(selector, value)
+        actual_value = self.get_input_value(selector)
 
-        actual_value = (locator.input_value() or "").strip()
         if actual_value != value:
             self.logger.warning(
                 "Field value mismatch after fill. Selector=%s | Expected=%s | Actual=%s. Retrying with JS.",
@@ -204,23 +150,5 @@ class BillPayPage(BasePage):
                 value,
                 actual_value,
             )
+            locator = self.get_locator(selector)
             self.page.evaluate("(element, val) => element.value = val", locator.element_handle(), value)
-
-    def _select_first_valid_option(self, dropdown: Locator) -> str | None:
-        options = dropdown.locator("option")
-        count = options.count()
-
-        for index in range(count):
-            option = options.nth(index)
-            value = (option.get_attribute("value") or "").strip()
-            text = option.inner_text().strip()
-
-            if value and text and text.lower() != "select account":
-                dropdown.select_option(
-                    value=value,
-                    timeout=self.config_manager.get_playwright_action_timeout_millis(),
-                )
-                self.logger.info("Selected dropdown option. Value=%s | Text=%s", value, text)
-                return value
-
-        return None
