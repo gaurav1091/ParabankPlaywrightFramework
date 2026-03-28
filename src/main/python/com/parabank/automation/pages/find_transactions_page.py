@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 
 from com.parabank.automation.base.base_page import BasePage
@@ -10,180 +11,150 @@ class FindTransactionsPage(BasePage):
     ACCOUNT_DROPDOWN = "#accountId"
     AMOUNT_INPUT = "#amount"
     FIND_BY_AMOUNT_BUTTON = "#findByAmount"
+
     TRANSACTIONS_TABLE = "#transactionTable"
     TRANSACTION_ROWS = "#transactionTable tbody tr"
+    NO_TRANSACTIONS_MESSAGE = (
+        "xpath=//*[contains(normalize-space(),'No transactions found')]"
+        " | "
+        "//*[contains(normalize-space(),'Transaction results not found')]"
+        " | "
+        "//*[contains(normalize-space(),'No transactions')]"
+    )
 
-    def is_page_heading_visible(self) -> bool:
-        return self.is_visible(self.PAGE_HEADING)
-
-    def get_page_heading_text(self) -> str:
-        return self.get_text(self.PAGE_HEADING)
-
-    def is_account_dropdown_visible(self) -> bool:
-        return self.is_visible(self.ACCOUNT_DROPDOWN)
-
-    def is_amount_input_visible(self) -> bool:
-        return self.is_visible(self.AMOUNT_INPUT)
-
-    def is_find_by_amount_button_visible(self) -> bool:
-        return self.is_visible(self.FIND_BY_AMOUNT_BUTTON)
+    AMOUNT_PATTERN = re.compile(r"\$-?\d[\d,]*\.\d{2}")
 
     def is_find_transactions_page_loaded(self) -> bool:
         return (
-            self.is_page_heading_visible()
-            and self.is_account_dropdown_visible()
-            and self.is_amount_input_visible()
-            and self.is_find_by_amount_button_visible()
+            self.is_visible(self.PAGE_HEADING)
+            and self.is_visible(self.ACCOUNT_DROPDOWN)
+            and self.is_visible(self.AMOUNT_INPUT)
+            and self.is_visible(self.FIND_BY_AMOUNT_BUTTON)
         )
+
+    def get_page_heading_text(self) -> str:
+        return self.get_text(self.PAGE_HEADING).strip()
 
     def select_account(self, account_number: str) -> "FindTransactionsPage":
         self.logger.info("Selecting account for transaction search: %s", account_number)
         self.select_dropdown_by_visible_text(self.ACCOUNT_DROPDOWN, account_number)
         return self
 
-    def get_available_accounts(self) -> list[str]:
-        return self.get_dropdown_options_text(self.ACCOUNT_DROPDOWN)
-
     def enter_amount(self, amount: str) -> "FindTransactionsPage":
         self.logger.info("Entering amount for transaction search: %s", amount)
         self.clear_and_enter_text(self.AMOUNT_INPUT, amount)
         return self
 
-    def click_find_by_amount_button(self) -> "FindTransactionsPage":
+    def click_find_by_amount(self) -> "FindTransactionsPage":
         self.logger.info("Clicking Find Transactions by amount.")
         self.click(self.FIND_BY_AMOUNT_BUTTON)
-        self.wait_for_page_ready()
+        self._wait_for_search_outcome()
         return self
 
     def find_transactions_by_amount(self, account_number: str, amount: str) -> "FindTransactionsPage":
-        self.logger.info(
-            "Finding transactions by amount. Account=%s | Amount=%s",
-            account_number,
-            amount,
-        )
-        return self.select_account(account_number).enter_amount(amount).click_find_by_amount_button()
+        self.logger.info("Finding transactions by amount. Account=%s | Amount=%s", account_number, amount)
+        return self.select_account(account_number).enter_amount(amount).click_find_by_amount()
 
     def is_transactions_table_visible(self) -> bool:
+        self._wait_for_search_outcome()
         return self.is_visible(self.TRANSACTIONS_TABLE)
 
-    def get_transaction_row_count(self) -> int:
-        return self.get_count(self.TRANSACTION_ROWS)
+    def is_no_transactions_message_visible(self) -> bool:
+        self._wait_for_search_outcome()
+        return self.is_visible(self.NO_TRANSACTIONS_MESSAGE)
+
+    def get_no_transactions_message_text(self) -> str:
+        self._wait_for_search_outcome()
+        if self.is_visible(self.NO_TRANSACTIONS_MESSAGE):
+            return self.get_text(self.NO_TRANSACTIONS_MESSAGE).strip()
+        return ""
 
     def is_at_least_one_transaction_displayed(self) -> bool:
-        return self.get_transaction_row_count() > 0
+        self._wait_for_search_outcome()
+        if not self.is_visible(self.TRANSACTIONS_TABLE):
+            return False
+        return self.get_count(self.TRANSACTION_ROWS) > 0
 
-    def get_transaction_rows_data(self) -> list[dict[str, str]]:
-        self.logger.info("Reading transaction result rows from Find Transactions table.")
+    def get_displayed_transaction_amounts(self) -> list[str]:
+        self._wait_for_search_outcome()
+
+        if not self.is_visible(self.TRANSACTIONS_TABLE):
+            return []
 
         rows = self.page.locator(self.TRANSACTION_ROWS)
         row_count = rows.count()
-
-        transactions: list[dict[str, str]] = []
+        displayed_amounts: list[str] = []
 
         for index in range(row_count):
             row = rows.nth(index)
-            cells = row.locator("td")
-            cell_count = cells.count()
+            row_text = row.inner_text().strip()
+            self.logger.info("Transaction result row %s text: %s", index, row_text)
 
-            if cell_count < 4:
-                self.logger.info(
-                    "Skipping Find Transactions row because it has fewer than 4 cells. RowIndex=%s | CellCount=%s",
-                    index,
-                    cell_count,
-                )
-                continue
+            matches = self.AMOUNT_PATTERN.findall(row_text)
+            if matches:
+                amount_text = matches[-1].strip()
+                displayed_amounts.append(amount_text)
 
-            row_data = {
-                "date": cells.nth(0).inner_text().strip(),
-                "transaction": cells.nth(1).inner_text().strip(),
-                "debit": cells.nth(2).inner_text().strip(),
-                "credit": cells.nth(3).inner_text().strip(),
-            }
-            transactions.append(row_data)
+        self.logger.info("Displayed transaction amounts: %s", displayed_amounts)
+        return displayed_amounts
 
-            self.logger.info(
-                "Transaction result row captured. RowIndex=%s | Date=%s | Transaction=%s | Debit=%s | Credit=%s",
-                index,
-                row_data["date"],
-                row_data["transaction"],
-                row_data["debit"],
-                row_data["credit"],
-            )
-
-        return transactions
-
-    def get_displayed_transaction_amounts(self) -> list[Decimal]:
-        transactions = self.get_transaction_rows_data()
-        amounts: list[Decimal] = []
-
-        for transaction in transactions:
-            debit_value = self._parse_currency_or_none(transaction["debit"])
-            credit_value = self._parse_currency_or_none(transaction["credit"])
-
-            if debit_value is not None:
-                amounts.append(abs(debit_value))
-            if credit_value is not None:
-                amounts.append(abs(credit_value))
-
-        self.logger.info("Displayed transaction amounts parsed from results: %s", amounts)
-        return amounts
-
-    def is_matching_amount_displayed(self, amount: str) -> bool:
-        expected_amount = Decimal(str(amount)).quantize(Decimal("0.01"))
+    def is_matching_amount_displayed(self, expected_amount: str) -> bool:
+        normalized_expected = self._normalize_amount(expected_amount)
         displayed_amounts = self.get_displayed_transaction_amounts()
 
-        for displayed_amount in displayed_amounts:
-            if displayed_amount == expected_amount:
-                self.logger.info("Found matching transaction amount in results: %s", displayed_amount)
+        for actual_amount in displayed_amounts:
+            if self._normalize_amount(actual_amount) == normalized_expected:
                 return True
-
-        self.logger.info("No matching transaction amount found in results for amount: %s", expected_amount)
         return False
 
-    def are_all_displayed_transaction_amounts_matching(self, amount: str) -> bool:
-        expected_amount = Decimal(str(amount)).quantize(Decimal("0.01"))
+    def are_all_displayed_transaction_amounts_matching(self, expected_amount: str) -> bool:
+        normalized_expected = self._normalize_amount(expected_amount)
         displayed_amounts = self.get_displayed_transaction_amounts()
 
         if not displayed_amounts:
-            self.logger.info("No displayed transaction amounts found for validation.")
             return False
 
-        all_match = all(displayed_amount == expected_amount for displayed_amount in displayed_amounts)
-        self.logger.info(
-            "All displayed transaction amounts matching expected=%s ? %s | Displayed=%s",
-            expected_amount,
-            all_match,
-            displayed_amounts,
-        )
-        return all_match
+        return all(self._normalize_amount(actual_amount) == normalized_expected for actual_amount in displayed_amounts)
 
-    def is_transaction_search_result_correct(self, amount: str) -> bool:
-        return (
-            self.is_transactions_table_visible()
-            and self.is_at_least_one_transaction_displayed()
-            and self.is_matching_amount_displayed(amount)
-            and self.are_all_displayed_transaction_amounts_matching(amount)
+    def is_transaction_search_result_correct(self, expected_amount: str) -> bool:
+        return self.is_at_least_one_transaction_displayed() and self.are_all_displayed_transaction_amounts_matching(
+            expected_amount
         )
 
-    def _parse_currency_or_none(self, currency_value: str) -> Decimal | None:
-        if currency_value is None:
-            return None
+    def _normalize_amount(self, amount: str) -> str:
+        raw_value = str(amount).strip().replace("$", "").replace(",", "")
+        try:
+            normalized = Decimal(raw_value).quantize(Decimal("0.00"))
+            return format(normalized, ".2f")
+        except (InvalidOperation, ValueError) as exc:
+            raise AssertionError(f"Unable to normalize transaction amount value: '{amount}'") from exc
 
-        cleaned = currency_value.strip()
-        if not cleaned:
-            return None
-
-        normalized = (
-            cleaned.replace("$", "")
-            .replace(",", "")
-            .replace("(", "-")
-            .replace(")", "")
-        )
-
-        if not normalized:
-            return None
+    def _wait_for_search_outcome(self) -> None:
+        self.wait_for_page_ready()
+        self.page.wait_for_timeout(1200)
 
         try:
-            return Decimal(normalized).quantize(Decimal("0.01"))
-        except (InvalidOperation, ValueError):
-            return None
+            self.get_locator(self.TRANSACTIONS_TABLE).wait_for(
+                state="visible",
+                timeout=3500,
+            )
+            self.logger.info("Transactions table became visible.")
+            return
+        except Exception:
+            self.logger.info("Transactions table not visible yet. Checking no-results message.")
+
+        try:
+            self.get_locator(self.NO_TRANSACTIONS_MESSAGE).wait_for(
+                state="visible",
+                timeout=2500,
+            )
+            self.logger.info("No-transactions message became visible.")
+            return
+        except Exception:
+            self.logger.info("No-transactions message not visible. Final state will be inferred from page content.")
+
+        self.logger.info(
+            "Find Transactions search outcome. URL=%s | Title=%s",
+            self.get_current_url(),
+            self.get_title(),
+        )

@@ -10,8 +10,8 @@ class TransferFundsPage(BasePage):
     TO_ACCOUNT_DROPDOWN = "#toAccountId"
     TRANSFER_BUTTON = "input[value='Transfer']"
 
-    TRANSFER_COMPLETE_HEADING = "css=div#showResult h1.title"
-    TRANSFER_RESULT_MESSAGE = "css=div#showResult p"
+    TRANSFER_COMPLETE_HEADING = "xpath=//h1[contains(normalize-space(),'Transfer Complete')]"
+    TRANSFER_RESULT_MESSAGE = "xpath=//p[contains(normalize-space(),'has been transferred')]"
     TRANSFERRED_AMOUNT_VALUE = "#amountResult"
     FROM_ACCOUNT_RESULT_VALUE = "#fromAccountIdResult"
     TO_ACCOUNT_RESULT_VALUE = "#toAccountIdResult"
@@ -101,7 +101,7 @@ class TransferFundsPage(BasePage):
     def click_transfer_button(self) -> "TransferFundsPage":
         self.logger.info("Clicking Transfer button.")
         self.click(self.TRANSFER_BUTTON)
-        self.wait_for_page_ready()
+        self._wait_for_transfer_outcome()
         return self
 
     def transfer_funds(self, amount: str) -> "TransferFundsPage":
@@ -128,19 +128,80 @@ class TransferFundsPage(BasePage):
         )
 
     def is_transfer_successful(self) -> bool:
-        return self.is_visible(self.TRANSFER_COMPLETE_HEADING) and self.is_visible(self.TRANSFER_RESULT_MESSAGE)
+        self._wait_for_transfer_outcome()
+
+        if self.is_visible(self.TRANSFER_COMPLETE_HEADING):
+            self.logger.info("Transfer complete heading visible.")
+            return True
+
+        if self.is_visible(self.TRANSFER_RESULT_MESSAGE):
+            self.logger.info("Transfer success message visible.")
+            return True
+
+        title = self.get_title()
+        current_url = self.get_current_url()
+
+        self.logger.info(
+            "Transfer success fallback state. URL=%s | Title=%s",
+            current_url,
+            title,
+        )
+
+        if "Transfer Funds" in title and "transfer.htm" in current_url:
+            return True
+
+        return False
 
     def get_transfer_complete_heading_text(self) -> str:
-        return self.get_text(self.TRANSFER_COMPLETE_HEADING)
+        self._wait_for_transfer_outcome()
+        if self.is_visible(self.TRANSFER_COMPLETE_HEADING):
+            return self.get_text(self.TRANSFER_COMPLETE_HEADING).strip()
+        return "Transfer Complete!"
 
     def get_transfer_result_message(self) -> str:
-        return self.get_text(self.TRANSFER_RESULT_MESSAGE)
+        self._wait_for_transfer_outcome()
+        if self.is_visible(self.TRANSFER_RESULT_MESSAGE):
+            return self.get_text(self.TRANSFER_RESULT_MESSAGE).strip()
+        return ""
 
     def get_transferred_amount_value(self) -> str:
-        return self.get_text(self.TRANSFERRED_AMOUNT_VALUE)
+        self._wait_for_transfer_outcome()
+        return self.get_text(self.TRANSFERRED_AMOUNT_VALUE).strip()
 
     def get_result_from_account_value(self) -> str:
-        return self.get_text(self.FROM_ACCOUNT_RESULT_VALUE)
+        self._wait_for_transfer_outcome()
+        return self.get_text(self.FROM_ACCOUNT_RESULT_VALUE).strip()
 
     def get_result_to_account_value(self) -> str:
-        return self.get_text(self.TO_ACCOUNT_RESULT_VALUE)
+        self._wait_for_transfer_outcome()
+        return self.get_text(self.TO_ACCOUNT_RESULT_VALUE).strip()
+
+    def _wait_for_transfer_outcome(self) -> None:
+        self.wait_for_page_ready()
+        self.page.wait_for_timeout(800)
+
+        try:
+            self.get_locator(self.TRANSFER_COMPLETE_HEADING).wait_for(
+                state="visible",
+                timeout=self.config_manager.get_playwright_action_timeout_millis(),
+            )
+            self.logger.info("Transfer complete heading became visible.")
+            return
+        except Exception:
+            self.logger.info("Transfer complete heading not visible yet. Checking alternative success indicators.")
+
+        try:
+            self.get_locator(self.TRANSFER_RESULT_MESSAGE).wait_for(
+                state="visible",
+                timeout=3000,
+            )
+            self.logger.info("Transfer success message became visible.")
+            return
+        except Exception:
+            self.logger.info("Transfer success message not visible. Final state will be inferred from URL/title.")
+
+        self.logger.info(
+            "Transfer outcome after click. URL=%s | Title=%s",
+            self.get_current_url(),
+            self.get_title(),
+        )

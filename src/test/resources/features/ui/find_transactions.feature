@@ -1,8 +1,8 @@
 @ui @regression
 Feature: Find Transactions
 
-  @ui @regression
-  Scenario Outline: Valid user finds transactions by transferred amount and validates search correctness
+  @ui @findtransactions @regression @positive
+  Scenario Outline: Valid user finds transactions by amount after performing a transfer
     Given the user opens the Parabank login page
     When the user logs in with valid credentials
     Then the user should be successfully logged in
@@ -15,6 +15,6 @@ Feature: Find Transactions
     And the search results should be correct for the searched account and amount
 
     Examples:
-      | testDataKey             |
-      | smallTransactionSearch  |
-      | mediumTransactionSearch |
+      | testDataKey               |
+      | transferTransactionSmall  |
+      | transferTransactionMedium |
