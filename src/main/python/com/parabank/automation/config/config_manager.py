@@ -245,10 +245,19 @@ class ConfigManager:
         return (self.get_property("parallel.mode") or "methods").strip().lower()
 
     def is_retry_enabled(self) -> bool:
-        return self._to_bool(self.get_property("retry.enabled"), default=True)
+        return self._to_bool(
+            self.get_property("retry.enabled"),
+            default=FrameworkConstants.DEFAULT_RETRY_ENABLED,
+        )
 
     def get_retry_count(self) -> int:
-        return self._get_int_property("retry.count", 1)
+        return self._get_int_property("retry.count", FrameworkConstants.DEFAULT_RETRY_COUNT)
+
+    def get_retry_delay_seconds(self) -> int:
+        return self._get_int_property(
+            "retry.delay.seconds",
+            FrameworkConstants.DEFAULT_RETRY_DELAY_SECONDS,
+        )
 
     def get_smart_wait_polling_millis(self) -> int:
         return self._get_int_property(
