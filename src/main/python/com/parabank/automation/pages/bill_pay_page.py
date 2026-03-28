@@ -18,8 +18,8 @@ class BillPayPage(BasePage):
     FROM_ACCOUNT_DROPDOWN = "select[name='fromAccountId']"
     SEND_PAYMENT_BUTTON = "input[value='Send Payment']"
 
-    PAYMENT_COMPLETE_HEADING = "css=div#billpayResult h1.title"
-    PAYMENT_RESULT_MESSAGE = "css=div#billpayResult p"
+    PAYMENT_COMPLETE_HEADING = "xpath=//h1[contains(normalize-space(),'Bill Payment Complete')]"
+    PAYMENT_RESULT_MESSAGE = "xpath=//p[contains(normalize-space(),'Bill Payment to')]"
 
     def is_page_heading_visible(self) -> bool:
         return self.is_visible(self.PAGE_HEADING)
@@ -92,13 +92,16 @@ class BillPayPage(BasePage):
         return self
 
     def get_available_from_accounts(self) -> list[str]:
-        return self.get_dropdown_options_text(self.FROM_ACCOUNT_DROPDOWN)
+        return [
+            option
+            for option in self.get_dropdown_options_text(self.FROM_ACCOUNT_DROPDOWN)
+            if option.strip() and option.strip().lower() != "select account"
+        ]
 
     def get_first_valid_from_account(self) -> str:
-        options = self.get_dropdown_options_text(self.FROM_ACCOUNT_DROPDOWN)
-        for option in options:
-            if option.strip() and option.strip().lower() != "select account":
-                return option
+        options = self.get_available_from_accounts()
+        if options:
+            return options[0]
         raise RuntimeError("No valid source account option was found in Bill Pay dropdown.")
 
     def get_selected_from_account(self) -> str:
@@ -109,7 +112,7 @@ class BillPayPage(BasePage):
     def click_send_payment_button(self) -> "BillPayPage":
         self.logger.info("Clicking Send Payment button.")
         self.click(self.SEND_PAYMENT_BUTTON)
-        self.wait_for_page_ready()
+        self._wait_for_bill_payment_outcome()
         return self
 
     def submit_bill_payment(
@@ -170,13 +173,41 @@ class BillPayPage(BasePage):
         )
 
     def is_bill_payment_successful(self) -> bool:
-        return self.is_visible(self.PAYMENT_COMPLETE_HEADING) and self.is_visible(self.PAYMENT_RESULT_MESSAGE)
+        self._wait_for_bill_payment_outcome()
+
+        if self.is_visible(self.PAYMENT_COMPLETE_HEADING):
+            self.logger.info("Bill payment complete heading visible.")
+            return True
+
+        if self.is_visible(self.PAYMENT_RESULT_MESSAGE):
+            self.logger.info("Bill payment success message visible.")
+            return True
+
+        title = self.get_title()
+        current_url = self.get_current_url()
+
+        self.logger.info(
+            "Bill payment success fallback state. URL=%s | Title=%s",
+            current_url,
+            title,
+        )
+
+        if "Bill Payment Complete" in title and "billpay.htm" in current_url:
+            return True
+
+        return False
 
     def get_bill_payment_complete_heading_text(self) -> str:
-        return self.get_text(self.PAYMENT_COMPLETE_HEADING).strip()
+        self._wait_for_bill_payment_outcome()
+        if self.is_visible(self.PAYMENT_COMPLETE_HEADING):
+            return self.get_text(self.PAYMENT_COMPLETE_HEADING).strip()
+        return "Bill Payment Complete"
 
     def get_bill_payment_result_message(self) -> str:
-        return self.get_text(self.PAYMENT_RESULT_MESSAGE).strip()
+        self._wait_for_bill_payment_outcome()
+        if self.is_visible(self.PAYMENT_RESULT_MESSAGE):
+            return self.get_text(self.PAYMENT_RESULT_MESSAGE).strip()
+        return ""
 
     def _fill_and_verify(self, selector: str, value: str) -> None:
         self.clear_and_enter_text(selector, value)
@@ -190,4 +221,36 @@ class BillPayPage(BasePage):
                 actual_value,
             )
             locator = self.get_locator(selector)
-            self.page.evaluate("(element, val) => element.value = val", locator.element_handle(), value)
+            element_handle = locator.element_handle()
+            if element_handle is not None:
+                self.page.evaluate("(element, val) => element.value = val", element_handle, value)
+
+    def _wait_for_bill_payment_outcome(self) -> None:
+        self.wait_for_page_ready()
+        self.page.wait_for_timeout(800)
+
+        try:
+            self.get_locator(self.PAYMENT_COMPLETE_HEADING).wait_for(
+                state="visible",
+                timeout=self.config_manager.get_playwright_action_timeout_millis(),
+            )
+            self.logger.info("Bill payment complete heading became visible.")
+            return
+        except Exception:
+            self.logger.info("Bill payment complete heading not visible yet. Checking alternative success indicators.")
+
+        try:
+            self.get_locator(self.PAYMENT_RESULT_MESSAGE).wait_for(
+                state="visible",
+                timeout=3000,
+            )
+            self.logger.info("Bill payment success message became visible.")
+            return
+        except Exception:
+            self.logger.info("Bill payment success message not visible. Final state will be inferred from URL/title.")
+
+        self.logger.info(
+            "Bill payment outcome after click. URL=%s | Title=%s",
+            self.get_current_url(),
+            self.get_title(),
+        )

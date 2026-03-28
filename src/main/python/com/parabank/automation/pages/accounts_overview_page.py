@@ -172,29 +172,38 @@ class AccountsOverviewPage(BasePage):
         return account_numbers[0]
 
     def get_first_healthy_account_number(self, minimum_available_balance: float | int | str = 1) -> str:
-        minimum_balance = Decimal(str(minimum_available_balance))
+        minimum_balance = Decimal(str(minimum_available_balance)).quantize(Decimal("0.01"))
         accounts = self.get_accounts_summary()
 
-        for account in accounts:
-            available_balance = account["available_balance"]
-            if isinstance(available_balance, Decimal) and available_balance >= minimum_balance:
-                selected_account = str(account["account_number"])
-                self.logger.info(
-                    "Selected healthy account from Accounts Overview. Account=%s | Available=%s",
-                    selected_account,
-                    available_balance,
-                )
-                return selected_account
+        eligible_accounts = [
+            account
+            for account in accounts
+            if isinstance(account["available_balance"], Decimal)
+            and account["available_balance"] >= minimum_balance
+        ]
 
-        raise AssertionError(
-            f"No account found with minimum available balance >= {minimum_balance} on Accounts Overview page."
+        eligible_accounts.sort(
+            key=lambda item: (-item["available_balance"], str(item["account_number"]))
         )
+
+        if not eligible_accounts:
+            raise AssertionError(
+                f"No account found with minimum available balance >= {minimum_balance} on Accounts Overview page."
+            )
+
+        selected_account = str(eligible_accounts[0]["account_number"])
+        self.logger.info(
+            "Selected healthy account from Accounts Overview. Account=%s | Minimum=%s",
+            selected_account,
+            minimum_balance,
+        )
+        return selected_account
 
     def get_eligible_source_accounts_for_new_account(
         self,
         minimum_available_balance: float | int | str = 10,
     ) -> list[str]:
-        minimum_balance = Decimal(str(minimum_available_balance))
+        minimum_balance = Decimal(str(minimum_available_balance)).quantize(Decimal("0.01"))
         accounts = self.get_accounts_summary()
 
         eligible_accounts: list[tuple[str, Decimal]] = []
@@ -206,7 +215,7 @@ class AccountsOverviewPage(BasePage):
             if isinstance(available_balance, Decimal) and available_balance >= minimum_balance:
                 eligible_accounts.append((account_number, available_balance))
 
-        eligible_accounts.sort(key=lambda item: (item[1], item[0]))
+        eligible_accounts.sort(key=lambda item: (-item[1], item[0]))
         ordered_account_numbers = [account_number for account_number, _ in eligible_accounts]
 
         self.logger.info(
@@ -234,7 +243,9 @@ class AccountsOverviewPage(BasePage):
             and account["available_balance"] >= transfer_amount_decimal
         ]
 
-        source_candidates.sort(key=lambda item: (item["available_balance"], str(item["account_number"])))
+        source_candidates.sort(
+            key=lambda item: (-item["available_balance"], str(item["account_number"]))
+        )
         all_accounts_sorted = sorted(accounts, key=lambda item: str(item["account_number"]))
 
         for source_account in source_candidates:
@@ -255,6 +266,99 @@ class AccountsOverviewPage(BasePage):
         raise AssertionError(
             f"No valid source/destination account pair found for transfer amount {transfer_amount_decimal}."
         )
+
+    def get_transfer_candidate_accounts_from_dropdown_options(
+        self,
+        from_account_options: list[str],
+        to_account_options: list[str],
+        transfer_amount: float | int | str,
+    ) -> tuple[str, str]:
+        transfer_amount_decimal = Decimal(str(transfer_amount)).quantize(Decimal("0.01"))
+        normalized_from_accounts = {str(account).strip() for account in from_account_options if str(account).strip()}
+        normalized_to_accounts = {str(account).strip() for account in to_account_options if str(account).strip()}
+
+        accounts = self.get_accounts_summary()
+
+        source_candidates = [
+            account
+            for account in accounts
+            if str(account["account_number"]).strip() in normalized_from_accounts
+            and isinstance(account["available_balance"], Decimal)
+            and account["available_balance"] >= transfer_amount_decimal
+        ]
+
+        source_candidates.sort(
+            key=lambda item: (-item["available_balance"], str(item["account_number"]))
+        )
+
+        destination_candidates = sorted(
+            [
+                str(account["account_number"]).strip()
+                for account in accounts
+                if str(account["account_number"]).strip() in normalized_to_accounts
+            ]
+        )
+
+        for source_account in source_candidates:
+            source_account_number = str(source_account["account_number"]).strip()
+
+            for destination_account_number in destination_candidates:
+                if destination_account_number != source_account_number:
+                    self.logger.info(
+                        "Selected transfer candidate accounts from dropdown options. Amount=%s | From=%s | To=%s",
+                        transfer_amount_decimal,
+                        source_account_number,
+                        destination_account_number,
+                    )
+                    return source_account_number, destination_account_number
+
+        raise AssertionError(
+            "No valid source/destination dropdown account pair found with sufficient balance "
+            f"for transfer amount {transfer_amount_decimal}."
+        )
+
+    def get_bill_pay_source_account_from_dropdown_options(
+        self,
+        from_account_options: list[str],
+        payment_amount: float | int | str,
+    ) -> str:
+        payment_amount_decimal = Decimal(str(payment_amount)).quantize(Decimal("0.01"))
+        normalized_accounts = {str(account).strip() for account in from_account_options if str(account).strip()}
+
+        accounts = self.get_accounts_summary()
+
+        eligible_accounts = [
+            account
+            for account in accounts
+            if str(account["account_number"]).strip() in normalized_accounts
+            and isinstance(account["available_balance"], Decimal)
+            and account["available_balance"] >= payment_amount_decimal
+        ]
+
+        eligible_accounts.sort(
+            key=lambda item: (-item["available_balance"], str(item["account_number"]))
+        )
+
+        if eligible_accounts:
+            selected_account = str(eligible_accounts[0]["account_number"]).strip()
+            self.logger.info(
+                "Selected Bill Pay source account from dropdown options. Amount=%s | Account=%s",
+                payment_amount_decimal,
+                selected_account,
+            )
+            return selected_account
+
+        fallback_accounts = sorted(normalized_accounts)
+        if fallback_accounts:
+            selected_account = fallback_accounts[0]
+            self.logger.warning(
+                "No Bill Pay dropdown account met minimum available balance %s. Falling back to account=%s",
+                payment_amount_decimal,
+                selected_account,
+            )
+            return selected_account
+
+        raise AssertionError("No valid Bill Pay source account was found from dropdown options.")
 
     def _parse_currency(self, currency_value: str) -> Decimal:
         normalized = (
