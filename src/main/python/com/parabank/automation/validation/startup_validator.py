@@ -28,7 +28,6 @@ class StartupValidator:
         cls.validate_uri("base.url", config_manager.get_base_url())
         cls.validate_uri("api.base.url", config_manager.get_api_base_url())
 
-        # ✅ Remote Execution Validation (BrowserStack only)
         if config_manager.is_remote_execution():
             cls.validate_remote_provider(config_manager.get_remote_provider())
 
@@ -43,7 +42,6 @@ class StartupValidator:
                     config_manager.get_browserstack_browser_version(),
                 )
 
-        # ✅ Numeric validations
         cls.validate_positive("implicit.wait", config_manager.get_implicit_wait())
         cls.validate_positive("explicit.wait", config_manager.get_explicit_wait())
         cls.validate_positive("page.load.timeout", config_manager.get_page_load_timeout())
@@ -53,6 +51,8 @@ class StartupValidator:
             "data.provider.thread.count",
             config_manager.get_data_provider_thread_count(),
         )
+        cls.validate_non_negative("retry.count", config_manager.get_retry_count())
+        cls.validate_non_negative("retry.delay.seconds", config_manager.get_retry_delay_seconds())
         cls.validate_positive(
             "api.connect.timeout.seconds",
             config_manager.get_api_connect_timeout_seconds(),
@@ -66,7 +66,6 @@ class StartupValidator:
             config_manager.get_startup_validation_timeout_seconds(),
         )
 
-        # ✅ Endpoint reachability
         cls.validate_endpoint_reachability(
             "Application Base URL",
             config_manager.get_base_url(),
@@ -151,6 +150,16 @@ class StartupValidator:
             )
 
         cls.LOGGER.info("Validated positive numeric configuration: %s=%s", property_name, value)
+
+    @classmethod
+    def validate_non_negative(cls, property_name: str, value: int) -> None:
+        if value < 0:
+            raise StartupValidationException(
+                f"Configuration value must be zero or greater for property: "
+                f"{property_name} | Actual: {value}"
+            )
+
+        cls.LOGGER.info("Validated non-negative numeric configuration: %s=%s", property_name, value)
 
     @classmethod
     def validate_endpoint_reachability(

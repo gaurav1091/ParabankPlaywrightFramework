@@ -41,6 +41,18 @@ pytest_plugins = (
 LOGGER = FrameworkLogger.get_logger("parabank_framework.conftest")
 REPORTS_DIR = Path("test-output/reports")
 REPORT_IMAGES_DIR = REPORTS_DIR / "images"
+RETRY_STATS = {
+    "rerun_events": 0,
+    "per_test_reruns": {},
+    "recovered_tests": set(),
+    "still_failing_after_rerun": set(),
+}
+RETRY_RUNTIME_CONFIG = {
+    "enabled": False,
+    "configured_retry_enabled": False,
+    "count": 0,
+    "delay_seconds": 0,
+}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -52,6 +64,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--thread-count", action="store", default=None, help="Parallel worker count equivalent")
     parser.addoption("--data-provider-thread-count", action="store", default=None, help="Parity placeholder with Java framework")
     parser.addoption("--retry-count", action="store", default=None, help="Retry count")
+    parser.addoption("--retry-delay", action="store", default=None, help="Retry delay in seconds")
     parser.addoption("--framework-base-url", action="store", default=None, help="Override application base url")
     parser.addoption("--api-base-url", action="store", default=None, help="Override API base url")
     parser.addoption("--username", action="store", default=None, help="Override application username")
@@ -108,6 +121,7 @@ def _build_overrides(pytestconfig: pytest.Config) -> dict[str, str]:
         "thread.count": pytestconfig.getoption("--thread-count"),
         "data.provider.thread.count": pytestconfig.getoption("--data-provider-thread-count"),
         "retry.count": pytestconfig.getoption("--retry-count"),
+        "retry.delay.seconds": pytestconfig.getoption("--retry-delay"),
         "base.url": pytestconfig.getoption("--framework-base-url"),
         "api.base.url": pytestconfig.getoption("--api-base-url"),
         "username": pytestconfig.getoption("--username"),
@@ -188,6 +202,44 @@ def _matches_suite(item: pytest.Item, suite: str) -> bool:
     return True
 
 
+def _initialize_retry_stats() -> None:
+    RETRY_STATS["rerun_events"] = 0
+    RETRY_STATS["per_test_reruns"] = {}
+    RETRY_STATS["recovered_tests"] = set()
+    RETRY_STATS["still_failing_after_rerun"] = set()
+
+
+def _get_retry_stats() -> dict:
+    return RETRY_STATS
+
+
+def _resolve_retry_runtime_config(config_manager: ConfigManager) -> dict[str, int | bool]:
+    retry_enabled = config_manager.is_retry_enabled()
+    retry_count = max(0, config_manager.get_retry_count()) if retry_enabled else 0
+    retry_delay_seconds = max(0, config_manager.get_retry_delay_seconds())
+
+    return {
+        "enabled": retry_enabled and retry_count > 0,
+        "configured_retry_enabled": retry_enabled,
+        "count": retry_count,
+        "delay_seconds": retry_delay_seconds,
+    }
+
+
+def _apply_retry_runtime_config(config: pytest.Config, config_manager: ConfigManager) -> dict[str, int | bool]:
+    retry_runtime_config = _resolve_retry_runtime_config(config_manager)
+
+    config.option.reruns = retry_runtime_config["count"]
+    config.option.reruns_delay = retry_runtime_config["delay_seconds"]
+
+    RETRY_RUNTIME_CONFIG.update(retry_runtime_config)
+    return retry_runtime_config
+
+
+def _get_retry_runtime_config() -> dict[str, int | bool]:
+    return RETRY_RUNTIME_CONFIG
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     suite = config.getoption("--suite")
     run_manual = config.getoption("--run-manual")
@@ -223,13 +275,17 @@ def pytest_report_header(config: pytest.Config) -> str:
     run_quarantined = config.getoption("--run-quarantined")
     execution_mode = config.getoption("--execution-mode") or "configured-default"
     browser = config.getoption("--framework-browser") or "configured-default"
+    retry_runtime_config = _get_retry_runtime_config()
 
     return (
         f"Suite selection: {suite} | "
         f"Include manual: {run_manual} | "
         f"Include quarantined: {run_quarantined} | "
         f"Execution mode: {execution_mode} | "
-        f"Browser: {browser}"
+        f"Browser: {browser} | "
+        f"Retry enabled: {retry_runtime_config['enabled']} | "
+        f"Retry count: {retry_runtime_config['count']} | "
+        f"Retry delay(s): {retry_runtime_config['delay_seconds']}"
     )
 
 
@@ -255,6 +311,46 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     relative_image_path = f"images/{Path(screenshot_path).name}"
     extras.append(pytest_html.extras.url(relative_image_path, name="failure_screenshot"))
     report.extras = extras
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    if report.when not in {"setup", "call"}:
+        return
+
+    stats = _get_retry_stats()
+    per_test_reruns = stats["per_test_reruns"]
+
+    if report.outcome == "rerun":
+        current_reruns = per_test_reruns.get(report.nodeid, 0) + 1
+        per_test_reruns[report.nodeid] = current_reruns
+        stats["rerun_events"] += 1
+
+        LOGGER.warning(
+            "RERUN scheduled | Node=%s | Phase=%s | Attempt=%s",
+            report.nodeid,
+            report.when,
+            current_reruns,
+        )
+        return
+
+    rerun_attempts = per_test_reruns.get(report.nodeid, 0)
+    if rerun_attempts == 0:
+        return
+
+    if report.outcome == "passed":
+        stats["recovered_tests"].add(report.nodeid)
+        LOGGER.info(
+            "RECOVERED after rerun | Node=%s | Attempts=%s",
+            report.nodeid,
+            rerun_attempts,
+        )
+    elif report.outcome == "failed":
+        stats["still_failing_after_rerun"].add(report.nodeid)
+        LOGGER.error(
+            "FAILED after reruns exhausted | Node=%s | Attempts=%s",
+            report.nodeid,
+            rerun_attempts,
+        )
 
 
 def _cleanup_artifacts_if_enabled(config_manager: ConfigManager) -> None:
@@ -284,6 +380,8 @@ def pytest_configure(config: pytest.Config) -> None:
     overrides = _build_overrides(config)
     config_manager = ConfigManager.initialize(overrides)
 
+    _initialize_retry_stats()
+    retry_runtime_config = _apply_retry_runtime_config(config, config_manager)
     _cleanup_artifacts_if_enabled(config_manager)
 
     ReportPathManager.create_directory_if_not_exists(FrameworkConstants.REPORTS_FOLDER)
@@ -306,9 +404,12 @@ def pytest_configure(config: pytest.Config) -> None:
     logger.info("API Base URL     : %s", config_manager.get_api_base_url())
     logger.info("Thread Count     : %s", config_manager.get_thread_count())
     logger.info("DP Thread Count  : %s", config_manager.get_data_provider_thread_count())
-    logger.info("Retry Enabled    : %s", config_manager.is_retry_enabled())
-    logger.info("Retry Count      : %s", config_manager.get_retry_count())
+    logger.info("Retry Config On  : %s", retry_runtime_config["configured_retry_enabled"])
+    logger.info("Retry Active     : %s", retry_runtime_config["enabled"])
+    logger.info("Retry Count      : %s", retry_runtime_config["count"])
+    logger.info("Retry Delay (s)  : %s", retry_runtime_config["delay_seconds"])
     logger.info("Selected Suite   : %s", config.getoption("--suite"))
+    logger.info("Flaky Policy     : quarantined tests are excluded unless --run-quarantined is used")
 
     browserstack_project = config_manager.get_property("browserstack.project.name")
     browserstack_build = config_manager.get_property("browserstack.build.name")
@@ -477,3 +578,30 @@ def framework_context_object(
 @pytest.fixture(scope="function")
 def test_context(framework_context_object: FrameworkContext) -> FrameworkContext:
     return framework_context_object
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus: int, config: pytest.Config) -> None:
+    retry_runtime_config = _get_retry_runtime_config()
+    stats = _get_retry_stats()
+    rerun_events = stats["rerun_events"]
+    recovered_tests = sorted(stats["recovered_tests"])
+    still_failing_after_rerun = sorted(stats["still_failing_after_rerun"])
+
+    terminalreporter.section("Framework Retry Summary", sep="=")
+    terminalreporter.write_line(f"Retry configured     : {retry_runtime_config['configured_retry_enabled']}")
+    terminalreporter.write_line(f"Retry active         : {retry_runtime_config['enabled']}")
+    terminalreporter.write_line(f"Retry count          : {retry_runtime_config['count']}")
+    terminalreporter.write_line(f"Retry delay (s)      : {retry_runtime_config['delay_seconds']}")
+    terminalreporter.write_line(f"Total rerun events   : {rerun_events}")
+    terminalreporter.write_line(f"Recovered after rerun: {len(recovered_tests)}")
+    terminalreporter.write_line(f"Failed after rerun   : {len(still_failing_after_rerun)}")
+
+    if recovered_tests:
+        terminalreporter.write_line("Recovered tests:")
+        for nodeid in recovered_tests:
+            terminalreporter.write_line(f"  - {nodeid}")
+
+    if still_failing_after_rerun:
+        terminalreporter.write_line("Still failing after retries:")
+        for nodeid in still_failing_after_rerun:
+            terminalreporter.write_line(f"  - {nodeid}")

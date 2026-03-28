@@ -33,7 +33,7 @@ def verify_accounts_overview_displayed(test_context: FrameworkContext) -> None:
     )
     UiAssertions.assert_current_url_contains(
         test_context.page,
-        "overview",
+        "overview error",
         "Accounts Overview URL validation failed.",
         "accounts_overview_url",
     )
