@@ -44,6 +44,14 @@ class FrameworkConstants:
     DEFAULT_PAGE_LOAD_TIMEOUT = 30
     DEFAULT_SCRIPT_TIMEOUT = 30
 
+    DEFAULT_PARALLEL_ENABLED = False
+    DEFAULT_THREAD_COUNT = 3
+    DEFAULT_DATA_PROVIDER_THREAD_COUNT = 3
+    DEFAULT_PARALLEL_MODE = "methods"
+    DEFAULT_PARALLEL_DIST_MODE = "load"
+    DEFAULT_XDIST_AUTO_APPLY = True
+    DEFAULT_SERIAL_MARKER_NAME = "serial"
+
     DEFAULT_RETRY_ENABLED = True
     DEFAULT_RETRY_COUNT = 1
     DEFAULT_RETRY_DELAY_SECONDS = 1
@@ -85,6 +93,15 @@ class FrameworkConstants:
     SUPPORTED_BROWSERS = {"chrome", "firefox", "edge"}
     SUPPORTED_EXECUTION_MODES = {"local", "remote"}
     SUPPORTED_REMOTE_PROVIDERS = {"selenium-grid", "browserstack"}
+    SUPPORTED_PARALLEL_MODES = {"off", "methods", "classes", "tests"}
+    SUPPORTED_XDIST_DIST_MODES = {"load", "loadscope", "loadfile", "worksteal", "no"}
+
+    PARALLEL_MODE_TO_XDIST_DIST_MAP = {
+        "off": "no",
+        "methods": "load",
+        "classes": "loadscope",
+        "tests": "loadfile",
+    }
 
     PLAYWRIGHT_BROWSER_NAME_MAP = {
         "chrome": "chromium",

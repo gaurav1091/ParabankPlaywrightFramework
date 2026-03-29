@@ -235,14 +235,49 @@ class ConfigManager:
     def is_screenshot_on_fail_enabled(self) -> bool:
         return self._to_bool(self.get_property("take.screenshot.on.fail"), default=True)
 
+    def is_parallel_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("parallel.enabled"),
+            default=FrameworkConstants.DEFAULT_PARALLEL_ENABLED,
+        )
+
     def get_thread_count(self) -> int:
-        return self._get_int_property("thread.count", 3)
+        return self._get_int_property("thread.count", FrameworkConstants.DEFAULT_THREAD_COUNT)
 
     def get_data_provider_thread_count(self) -> int:
-        return self._get_int_property("data.provider.thread.count", 3)
+        return self._get_int_property(
+            "data.provider.thread.count",
+            FrameworkConstants.DEFAULT_DATA_PROVIDER_THREAD_COUNT,
+        )
 
     def get_parallel_mode(self) -> str:
-        return (self.get_property("parallel.mode") or "methods").strip().lower()
+        return (
+            self.get_property("parallel.mode")
+            or FrameworkConstants.DEFAULT_PARALLEL_MODE
+        ).strip().lower()
+
+    def get_parallel_dist_mode(self) -> str:
+        configured_dist_mode = self.get_property("parallel.dist.mode")
+
+        if configured_dist_mode and configured_dist_mode.strip():
+            return configured_dist_mode.strip().lower()
+
+        return FrameworkConstants.PARALLEL_MODE_TO_XDIST_DIST_MAP.get(
+            self.get_parallel_mode(),
+            FrameworkConstants.DEFAULT_PARALLEL_DIST_MODE,
+        )
+
+    def is_xdist_auto_apply_enabled(self) -> bool:
+        return self._to_bool(
+            self.get_property("xdist.auto.apply"),
+            default=FrameworkConstants.DEFAULT_XDIST_AUTO_APPLY,
+        )
+
+    def get_serial_marker_name(self) -> str:
+        marker_name = self.get_property("serial.marker.name")
+        if marker_name and marker_name.strip():
+            return marker_name.strip()
+        return FrameworkConstants.DEFAULT_SERIAL_MARKER_NAME
 
     def is_retry_enabled(self) -> bool:
         return self._to_bool(

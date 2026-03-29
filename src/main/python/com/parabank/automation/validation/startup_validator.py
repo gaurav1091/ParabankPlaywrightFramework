@@ -46,11 +46,9 @@ class StartupValidator:
         cls.validate_positive("explicit.wait", config_manager.get_explicit_wait())
         cls.validate_positive("page.load.timeout", config_manager.get_page_load_timeout())
         cls.validate_positive("script.timeout", config_manager.get_script_timeout())
-        cls.validate_positive("thread.count", config_manager.get_thread_count())
-        cls.validate_positive(
-            "data.provider.thread.count",
-            config_manager.get_data_provider_thread_count(),
-        )
+
+        cls.validate_parallel_settings(config_manager)
+
         cls.validate_non_negative("retry.count", config_manager.get_retry_count())
         cls.validate_non_negative("retry.delay.seconds", config_manager.get_retry_delay_seconds())
         cls.validate_positive(
@@ -122,6 +120,43 @@ class StartupValidator:
         cls.LOGGER.info("Validated remote provider: %s", remote_provider.strip().lower())
 
     @classmethod
+    def validate_parallel_settings(cls, config_manager: ConfigManager) -> None:
+        cls.validate_positive("thread.count", config_manager.get_thread_count())
+        cls.validate_positive(
+            "data.provider.thread.count",
+            config_manager.get_data_provider_thread_count(),
+        )
+
+        parallel_mode = config_manager.get_parallel_mode()
+        if parallel_mode not in FrameworkConstants.SUPPORTED_PARALLEL_MODES:
+            raise StartupValidationException(
+                f"Unsupported parallel.mode: {parallel_mode}. "
+                f"Supported values: {sorted(FrameworkConstants.SUPPORTED_PARALLEL_MODES)}"
+            )
+
+        cls.LOGGER.info("Validated parallel.mode: %s", parallel_mode)
+
+        parallel_dist_mode = config_manager.get_parallel_dist_mode()
+        if parallel_dist_mode not in FrameworkConstants.SUPPORTED_XDIST_DIST_MODES:
+            raise StartupValidationException(
+                f"Unsupported parallel.dist.mode: {parallel_dist_mode}. "
+                f"Supported values: {sorted(FrameworkConstants.SUPPORTED_XDIST_DIST_MODES)}"
+            )
+
+        cls.LOGGER.info("Validated parallel.dist.mode: %s", parallel_dist_mode)
+
+        serial_marker_name = config_manager.get_serial_marker_name()
+        cls.validate_non_blank("serial.marker.name", serial_marker_name)
+
+        cls.LOGGER.info(
+            "Validated parallel settings. enabled=%s | thread.count=%s | data.provider.thread.count=%s | serial.marker.name=%s",
+            config_manager.is_parallel_enabled(),
+            config_manager.get_thread_count(),
+            config_manager.get_data_provider_thread_count(),
+            serial_marker_name,
+        )
+
+    @classmethod
     def validate_uri(cls, property_name: str, uri_value: str) -> None:
         if not uri_value or not uri_value.strip():
             raise StartupValidationException(f"Required configuration is missing: {property_name}")
@@ -190,7 +225,7 @@ class StartupValidator:
             ReportPathManager.create_directory_if_not_exists(FrameworkConstants.TRACES_FOLDER)
             ReportPathManager.create_directory_if_not_exists(FrameworkConstants.VIDEOS_FOLDER)
 
-            framework_log_path = Path(FrameworkConstants.LOGS_FOLDER) / "framework.log"
+            framework_log_path = Path(FrameworkConstants.LOGS_FOLDER) / "framework_master.log"
             if not framework_log_path.exists():
                 framework_log_path.touch(exist_ok=True)
 
