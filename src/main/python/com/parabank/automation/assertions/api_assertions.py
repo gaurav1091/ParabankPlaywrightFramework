@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +9,6 @@ from jsonschema import Draft7Validator
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.config.framework_constants import FrameworkConstants
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
-from com.parabank.automation.utils.json_reader import JsonReader
 
 
 class ApiAssertions:
@@ -86,7 +86,6 @@ class ApiAssertions:
 
     @classmethod
     def assert_field_present(cls, payload: dict, field_name: str, message: str) -> None:
-        CommonAssertions.assert_response_is_dict = None
         CommonAssertions.assert_is_instance(payload, dict, message)
         CommonAssertions.assert_true(
             field_name in payload,
@@ -152,9 +151,11 @@ class ApiAssertions:
                 f"{message} | Schema file not found: {schema_path}"
             )
 
-        schema = JsonReader.read_json(str(Path("..") / "schemas" / schema_relative_path).replace("../", ""))
+        with open(schema_path, "r", encoding="utf-8") as schema_file:
+            schema = json.load(schema_file)
+
         validator = Draft7Validator(schema)
-        errors = sorted(validator.iter_errors(payload), key=lambda error: error.path)
+        errors = sorted(validator.iter_errors(payload), key=lambda error: list(error.path))
 
         if errors:
             formatted_errors = [

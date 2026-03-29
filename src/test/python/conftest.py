@@ -37,6 +37,8 @@ pytest_plugins = (
     "stepdefinitions.ui.transfer_funds_steps",
     "stepdefinitions.ui.bill_pay_steps",
     "stepdefinitions.ui.find_transactions_steps",
+    "stepdefinitions.api.account_api_steps",
+    "stepdefinitions.api.customer_api_steps",
 )
 
 LOGGER = FrameworkLogger.get_logger("parabank_framework.conftest")
