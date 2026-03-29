@@ -5,7 +5,6 @@ from com.parabank.automation.api.client.api_client import ApiClient
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.config.config_manager import ConfigManager
 
-
 pytestmark = [pytest.mark.api, pytest.mark.sanity]
 
 

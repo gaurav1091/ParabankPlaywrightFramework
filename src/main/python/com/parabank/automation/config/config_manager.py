@@ -13,9 +13,7 @@ class ConfigManager:
     _overrides: dict[str, str] = {}
 
     def __init__(self) -> None:
-        framework_config_path = (
-            f"{FrameworkConstants.CONFIG_RESOURCES_ROOT}/{FrameworkConstants.FRAMEWORK_CONFIG_FILE}"
-        )
+        framework_config_path = f"{FrameworkConstants.CONFIG_RESOURCES_ROOT}/{FrameworkConstants.FRAMEWORK_CONFIG_FILE}"
         environment_config_path = (
             f"{FrameworkConstants.CONFIG_RESOURCES_ROOT}/"
             f"{EnvironmentManager.get_environment_config_file_name(self._overrides.get('env'))}"
@@ -100,34 +98,22 @@ class ConfigManager:
         )
 
     def get_execution_mode(self) -> str:
-        return (
-            self.get_property("execution.mode")
-            or FrameworkConstants.EXECUTION_MODE_LOCAL
-        ).strip().lower()
+        return (self.get_property("execution.mode") or FrameworkConstants.EXECUTION_MODE_LOCAL).strip().lower()
 
     def is_remote_execution(self) -> bool:
         return self.get_execution_mode() == FrameworkConstants.EXECUTION_MODE_REMOTE
 
     def get_remote_provider(self) -> str:
-        return (
-            self.get_property("remote.provider")
-            or FrameworkConstants.REMOTE_PROVIDER_BROWSERSTACK
-        ).strip().lower()
+        return (self.get_property("remote.provider") or FrameworkConstants.REMOTE_PROVIDER_BROWSERSTACK).strip().lower()
 
     def is_browserstack_execution(self) -> bool:
         return self.is_remote_execution()
 
     def get_selenium_remote_url(self) -> str:
-        return (
-            self.get_property("selenium.remote.url")
-            or FrameworkConstants.DEFAULT_SELENIUM_REMOTE_URL
-        ).strip()
+        return (self.get_property("selenium.remote.url") or FrameworkConstants.DEFAULT_SELENIUM_REMOTE_URL).strip()
 
     def get_browserstack_hub_url(self) -> str:
-        return (
-            self.get_property("browserstack.hub.url")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_HUB_URL
-        ).strip()
+        return (self.get_property("browserstack.hub.url") or FrameworkConstants.DEFAULT_BROWSERSTACK_HUB_URL).strip()
 
     def get_browserstack_username(self) -> str:
         return SensitiveDataResolver.resolve_credential_value(
@@ -155,39 +141,31 @@ class ConfigManager:
         return parsed._replace(netloc=auth_netloc).geturl()
 
     def get_browserstack_os(self) -> str:
-        return (
-            self.get_property("browserstack.os")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_OS
-        ).strip()
+        return (self.get_property("browserstack.os") or FrameworkConstants.DEFAULT_BROWSERSTACK_OS).strip()
 
     def get_browserstack_os_version(self) -> str:
         return (
-            self.get_property("browserstack.os.version")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_OS_VERSION
+            self.get_property("browserstack.os.version") or FrameworkConstants.DEFAULT_BROWSERSTACK_OS_VERSION
         ).strip()
 
     def get_browserstack_browser_version(self) -> str:
         return (
-            self.get_property("browserstack.browser.version")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_BROWSER_VERSION
+            self.get_property("browserstack.browser.version") or FrameworkConstants.DEFAULT_BROWSERSTACK_BROWSER_VERSION
         ).strip()
 
     def get_browserstack_project_name(self) -> str:
         return (
-            self.get_property("browserstack.project.name")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_PROJECT_NAME
+            self.get_property("browserstack.project.name") or FrameworkConstants.DEFAULT_BROWSERSTACK_PROJECT_NAME
         ).strip()
 
     def get_browserstack_build_name(self) -> str:
         return (
-            self.get_property("browserstack.build.name")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_BUILD_NAME
+            self.get_property("browserstack.build.name") or FrameworkConstants.DEFAULT_BROWSERSTACK_BUILD_NAME
         ).strip()
 
     def get_browserstack_session_name(self) -> str:
         return (
-            self.get_property("browserstack.session.name")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_SESSION_NAME
+            self.get_property("browserstack.session.name") or FrameworkConstants.DEFAULT_BROWSERSTACK_SESSION_NAME
         ).strip()
 
     def is_browserstack_local_enabled(self) -> bool:
@@ -210,8 +188,7 @@ class ConfigManager:
 
     def get_browserstack_console_logs(self) -> str:
         return (
-            self.get_property("browserstack.console.logs")
-            or FrameworkConstants.DEFAULT_BROWSERSTACK_CONSOLE_LOGS
+            self.get_property("browserstack.console.logs") or FrameworkConstants.DEFAULT_BROWSERSTACK_CONSOLE_LOGS
         ).strip()
 
     def get_implicit_wait(self) -> int:
@@ -251,10 +228,7 @@ class ConfigManager:
         )
 
     def get_parallel_mode(self) -> str:
-        return (
-            self.get_property("parallel.mode")
-            or FrameworkConstants.DEFAULT_PARALLEL_MODE
-        ).strip().lower()
+        return (self.get_property("parallel.mode") or FrameworkConstants.DEFAULT_PARALLEL_MODE).strip().lower()
 
     def get_parallel_dist_mode(self) -> str:
         configured_dist_mode = self.get_property("parallel.dist.mode")

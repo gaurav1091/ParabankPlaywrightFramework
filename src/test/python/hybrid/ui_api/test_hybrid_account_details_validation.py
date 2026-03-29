@@ -7,7 +7,6 @@ from com.parabank.automation.context.framework_context import FrameworkContext
 from com.parabank.automation.hybrid.services.hybrid_accounts_service import HybridAccountsService
 from com.parabank.automation.pages.login_page import LoginPage
 
-
 pytestmark = [pytest.mark.hybrid, pytest.mark.ui, pytest.mark.api, pytest.mark.integration, pytest.mark.regression]
 
 

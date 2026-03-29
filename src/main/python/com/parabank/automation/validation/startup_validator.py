@@ -81,41 +81,30 @@ class StartupValidator:
     @classmethod
     def validate_environment(cls, environment: str) -> None:
         if environment not in FrameworkConstants.SUPPORTED_ENVIRONMENTS:
-            raise StartupValidationException(
-                "Invalid environment configuration. Supported values: qa, stage, dev."
-            )
+            raise StartupValidationException("Invalid environment configuration. Supported values: qa, stage, dev.")
         cls.LOGGER.info("Validated environment: %s", environment)
 
     @classmethod
     def validate_browser(cls, browser: str) -> None:
         if not browser or browser.strip().lower() not in FrameworkConstants.SUPPORTED_BROWSERS:
             raise StartupValidationException(
-                f"Unsupported browser configured: {browser}. "
-                f"Supported values: chrome, firefox, edge."
+                f"Unsupported browser configured: {browser}. " f"Supported values: chrome, firefox, edge."
             )
         cls.LOGGER.info("Validated browser: %s", browser.strip().lower())
 
     @classmethod
     def validate_execution_mode(cls, execution_mode: str) -> None:
-        if (
-            not execution_mode
-            or execution_mode.strip().lower() not in FrameworkConstants.SUPPORTED_EXECUTION_MODES
-        ):
+        if not execution_mode or execution_mode.strip().lower() not in FrameworkConstants.SUPPORTED_EXECUTION_MODES:
             raise StartupValidationException(
-                f"Unsupported execution mode: {execution_mode}. "
-                f"Supported values: local, remote."
+                f"Unsupported execution mode: {execution_mode}. " f"Supported values: local, remote."
             )
         cls.LOGGER.info("Validated execution mode: %s", execution_mode.strip().lower())
 
     @classmethod
     def validate_remote_provider(cls, remote_provider: str) -> None:
-        if (
-            not remote_provider
-            or remote_provider.strip().lower() != "browserstack"
-        ):
+        if not remote_provider or remote_provider.strip().lower() != "browserstack":
             raise StartupValidationException(
-                f"Unsupported remote provider: {remote_provider}. "
-                f"Supported value: browserstack."
+                f"Unsupported remote provider: {remote_provider}. " f"Supported value: browserstack."
             )
         cls.LOGGER.info("Validated remote provider: %s", remote_provider.strip().lower())
 
@@ -163,9 +152,7 @@ class StartupValidator:
 
         parsed = urlparse(uri_value.strip())
         if not parsed.scheme or not parsed.netloc:
-            raise StartupValidationException(
-                f"Invalid URI configured for {property_name}: {uri_value}"
-            )
+            raise StartupValidationException(f"Invalid URI configured for {property_name}: {uri_value}")
 
         cls.LOGGER.info("Validated URI for property: %s", property_name)
 
@@ -180,8 +167,7 @@ class StartupValidator:
     def validate_positive(cls, property_name: str, value: int) -> None:
         if value <= 0:
             raise StartupValidationException(
-                f"Configuration value must be greater than zero for property: "
-                f"{property_name} | Actual: {value}"
+                f"Configuration value must be greater than zero for property: " f"{property_name} | Actual: {value}"
             )
 
         cls.LOGGER.info("Validated positive numeric configuration: %s=%s", property_name, value)
@@ -190,8 +176,7 @@ class StartupValidator:
     def validate_non_negative(cls, property_name: str, value: int) -> None:
         if value < 0:
             raise StartupValidationException(
-                f"Configuration value must be zero or greater for property: "
-                f"{property_name} | Actual: {value}"
+                f"Configuration value must be zero or greater for property: " f"{property_name} | Actual: {value}"
             )
 
         cls.LOGGER.info("Validated non-negative numeric configuration: %s=%s", property_name, value)
@@ -230,8 +215,6 @@ class StartupValidator:
                 framework_log_path.touch(exist_ok=True)
 
         except Exception as exc:
-            raise StartupValidationException(
-                "Failed to create or validate report directories."
-            ) from exc
+            raise StartupValidationException("Failed to create or validate report directories.") from exc
 
         cls.LOGGER.info("Validated report/artifact directories.")

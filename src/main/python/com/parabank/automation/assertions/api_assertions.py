@@ -147,9 +147,7 @@ class ApiAssertions:
     ) -> None:
         schema_path = Path(FrameworkConstants.SCHEMA_RESOURCES_ROOT) / schema_relative_path
         if not schema_path.exists():
-            raise AssertionError(
-                f"{message} | Schema file not found: {schema_path}"
-            )
+            raise AssertionError(f"{message} | Schema file not found: {schema_path}")
 
         with open(schema_path, "r", encoding="utf-8") as schema_file:
             schema = json.load(schema_file)
@@ -158,13 +156,8 @@ class ApiAssertions:
         errors = sorted(validator.iter_errors(payload), key=lambda error: list(error.path))
 
         if errors:
-            formatted_errors = [
-                f"path={list(error.path)} | message={error.message}"
-                for error in errors
-            ]
-            raise AssertionError(
-                f"{message} | Schema resource={schema_relative_path} | Violations={formatted_errors}"
-            )
+            formatted_errors = [f"path={list(error.path)} | message={error.message}" for error in errors]
+            raise AssertionError(f"{message} | Schema resource={schema_relative_path} | Violations={formatted_errors}")
 
         cls.LOGGER.info(
             "API assertion passed: JSON matches schema. Schema=%s",

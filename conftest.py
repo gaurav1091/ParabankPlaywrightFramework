@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_MAIN_PYTHON = PROJECT_ROOT / "src" / "main" / "python"
 SRC_TEST_PYTHON = PROJECT_ROOT / "src" / "test" / "python"
@@ -36,7 +35,7 @@ def _get_cli_option_value(args: list[str], option_name: str) -> str | None:
 
     for index, arg in enumerate(args):
         if arg.startswith(prefix):
-            return arg[len(prefix):].strip()
+            return arg[len(prefix) :].strip()
 
         if arg == option_name and index + 1 < len(args):
             next_arg = args[index + 1].strip()

@@ -1,0 +1,93 @@
+[MASTER]
+jobs=0
+persistent=yes
+py-version=3.11
+init-hook=
+    import os, sys; \
+    project_root = os.getcwd(); \
+    sys.path.insert(0, os.path.join(project_root, "src", "main", "python")); \
+    sys.path.insert(0, os.path.join(project_root, "src", "test", "python"))
+
+ignore=
+    .git,
+    .github,
+    __pycache__,
+    .pytest_cache,
+    .venv,
+    venv,
+    node_modules,
+    test-output,
+    downloaded-html-reports,
+    downloaded-allure-results,
+    html-pages-site,
+    allure-pages-site,
+    pages-site
+
+ignore-patterns=
+    .*_pb2\.py,
+    .*_pb2_grpc\.py
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-instance-attributes,
+    too-many-locals,
+    too-many-statements,
+    too-many-branches,
+    too-many-return-statements,
+    duplicate-code,
+    broad-exception-caught,
+    broad-exception-raised,
+    fixme,
+    import-outside-toplevel,
+    protected-access
+
+[REPORTS]
+score=yes
+output-format=colorized
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-args=10
+max-attributes=15
+max-locals=30
+max-branches=20
+max-statements=80
+max-returns=8
+
+[SIMILARITIES]
+min-similarity-lines=8
+
+[TYPECHECK]
+ignored-modules=
+    playwright,
+    allure
+
+[IMPORTS]
+known-third-party=
+    allure,
+    dotenv,
+    faker,
+    jsonschema,
+    playwright,
+    pytest,
+    pytest_bdd,
+    requests
+
+[BASIC]
+good-names=
+    i,
+    j,
+    k,
+    ex,
+    id,
+    db,
+    ui,
+    api,
+    ok

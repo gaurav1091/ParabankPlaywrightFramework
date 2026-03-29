@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pytest_bdd import given, then, when
 from playwright.sync_api import Playwright
+from pytest_bdd import given, then, when
 
 from com.parabank.automation.api.services.accounts_api_service import AccountsApiService
 from com.parabank.automation.assertions.api_assertions import ApiAssertions

@@ -1,7 +1,6 @@
 import pytest
 from pytest_bdd import scenarios
 
-
 pytestmark = [
     pytest.mark.hybrid,
     pytest.mark.apiui,

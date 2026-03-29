@@ -49,9 +49,7 @@ class FrameworkLogger:
             root_logger = logging.getLogger()
             root_logger.setLevel(logging.INFO)
 
-            formatter = logging.Formatter(
-                "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-            )
+            formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
 
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.INFO)
