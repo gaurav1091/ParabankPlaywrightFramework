@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,102 +21,96 @@ class StartupValidator:
 
         if not config_manager.is_startup_validation_enabled():
             cls.LOGGER.info("Startup validation is disabled by configuration.")
-            cls.validate_report_directories()
             return
 
-        cls.validate_environment(config_manager.get_current_environment())
-        cls.validate_browser(config_manager.get_browser())
-        cls.validate_execution_mode(config_manager.get_execution_mode())
-        cls.validate_uri("base.url", config_manager.get_base_url())
-        cls.validate_uri("api.base.url", config_manager.get_api_base_url())
+        cls.LOGGER.info("Running startup validation.")
 
-        if config_manager.is_remote_execution():
-            cls.validate_remote_provider(config_manager.get_remote_provider())
-
-            if config_manager.is_browserstack_execution():
-                cls.validate_uri("browserstack.hub.url", config_manager.get_browserstack_hub_url())
-                cls.validate_non_blank("browserstack.username", config_manager.get_browserstack_username())
-                cls.validate_non_blank("browserstack.access.key", config_manager.get_browserstack_access_key())
-                cls.validate_non_blank("browserstack.os", config_manager.get_browserstack_os())
-                cls.validate_non_blank("browserstack.os.version", config_manager.get_browserstack_os_version())
-                cls.validate_non_blank(
-                    "browserstack.browser.version",
-                    config_manager.get_browserstack_browser_version(),
-                )
-
-        cls.validate_positive("implicit.wait", config_manager.get_implicit_wait())
-        cls.validate_positive("explicit.wait", config_manager.get_explicit_wait())
-        cls.validate_positive("page.load.timeout", config_manager.get_page_load_timeout())
-        cls.validate_positive("script.timeout", config_manager.get_script_timeout())
-
+        cls.validate_environment(config_manager)
+        cls.validate_browser(config_manager)
+        cls.validate_execution_mode(config_manager)
+        cls.validate_application_urls(config_manager)
+        cls.validate_timeouts(config_manager)
+        cls.validate_retry_settings(config_manager)
         cls.validate_parallel_settings(config_manager)
+        cls.validate_required_directories()
 
-        cls.validate_non_negative("retry.count", config_manager.get_retry_count())
-        cls.validate_non_negative("retry.delay.seconds", config_manager.get_retry_delay_seconds())
-        cls.validate_positive(
-            "api.connect.timeout.seconds",
-            config_manager.get_api_connect_timeout_seconds(),
-        )
-        cls.validate_positive(
-            "api.read.timeout.seconds",
-            config_manager.get_api_read_timeout_seconds(),
-        )
-        cls.validate_positive(
-            "startup.validation.timeout.seconds",
-            config_manager.get_startup_validation_timeout_seconds(),
-        )
-
-        cls.validate_endpoint_reachability(
-            "Application Base URL",
-            config_manager.get_base_url(),
-            config_manager.get_startup_validation_timeout_seconds(),
-        )
-        cls.validate_endpoint_reachability(
-            "API Base URL",
-            config_manager.get_api_base_url(),
-            config_manager.get_startup_validation_timeout_seconds(),
-        )
-
-        cls.validate_report_directories()
         cls.LOGGER.info("Startup validation completed successfully.")
 
     @classmethod
-    def validate_environment(cls, environment: str) -> None:
-        if environment not in FrameworkConstants.SUPPORTED_ENVIRONMENTS:
-            raise StartupValidationException("Invalid environment configuration. Supported values: qa, stage, dev.")
-        cls.LOGGER.info("Validated environment: %s", environment)
+    def validate_environment(cls, config_manager: ConfigManager) -> None:
+        current_environment = config_manager.get_current_environment()
+        if current_environment not in FrameworkConstants.SUPPORTED_ENVIRONMENTS:
+            raise StartupValidationException(
+                f"Unsupported environment configured: {current_environment}. "
+                f"Supported values: {sorted(FrameworkConstants.SUPPORTED_ENVIRONMENTS)}"
+            )
+
+        cls.LOGGER.info("Validated environment: %s", current_environment)
 
     @classmethod
-    def validate_browser(cls, browser: str) -> None:
-        if not browser or browser.strip().lower() not in FrameworkConstants.SUPPORTED_BROWSERS:
+    def validate_browser(cls, config_manager: ConfigManager) -> None:
+        browser_name = config_manager.get_browser()
+        if browser_name not in FrameworkConstants.SUPPORTED_BROWSERS:
             raise StartupValidationException(
-                f"Unsupported browser configured: {browser}. " f"Supported values: chrome, firefox, edge."
+                f"Unsupported browser configured: {browser_name}. "
+                f"Supported values: {sorted(FrameworkConstants.SUPPORTED_BROWSERS)}"
             )
-        cls.LOGGER.info("Validated browser: %s", browser.strip().lower())
+
+        cls.LOGGER.info("Validated browser: %s", browser_name)
 
     @classmethod
-    def validate_execution_mode(cls, execution_mode: str) -> None:
-        if not execution_mode or execution_mode.strip().lower() not in FrameworkConstants.SUPPORTED_EXECUTION_MODES:
+    def validate_execution_mode(cls, config_manager: ConfigManager) -> None:
+        execution_mode = config_manager.get_execution_mode()
+        if execution_mode not in FrameworkConstants.SUPPORTED_EXECUTION_MODES:
             raise StartupValidationException(
-                f"Unsupported execution mode: {execution_mode}. " f"Supported values: local, remote."
+                f"Unsupported execution.mode: {execution_mode}. "
+                f"Supported values: {sorted(FrameworkConstants.SUPPORTED_EXECUTION_MODES)}"
             )
-        cls.LOGGER.info("Validated execution mode: %s", execution_mode.strip().lower())
+
+        cls.LOGGER.info("Validated execution.mode: %s", execution_mode)
+
+        if execution_mode == "remote":
+            remote_provider = config_manager.get_remote_provider()
+            if remote_provider not in FrameworkConstants.SUPPORTED_REMOTE_PROVIDERS:
+                raise StartupValidationException(
+                    f"Unsupported remote.provider: {remote_provider}. "
+                    f"Supported values: {sorted(FrameworkConstants.SUPPORTED_REMOTE_PROVIDERS)}"
+                )
+
+            cls.LOGGER.info("Validated remote.provider: %s", remote_provider)
 
     @classmethod
-    def validate_remote_provider(cls, remote_provider: str) -> None:
-        if not remote_provider or remote_provider.strip().lower() != "browserstack":
-            raise StartupValidationException(
-                f"Unsupported remote provider: {remote_provider}. " f"Supported value: browserstack."
-            )
-        cls.LOGGER.info("Validated remote provider: %s", remote_provider.strip().lower())
+    def validate_application_urls(cls, config_manager: ConfigManager) -> None:
+        cls.validate_uri("base.url", config_manager.get_base_url())
+        cls.validate_uri("api.base.url", config_manager.get_api_base_url())
+
+    @classmethod
+    def validate_timeouts(cls, config_manager: ConfigManager) -> None:
+        cls.validate_positive("default.timeout.millis", config_manager.get_default_timeout_millis())
+        cls.validate_positive("page.load.timeout.millis", config_manager.get_page_load_timeout_millis())
+        cls.validate_positive(
+            "playwright.action.timeout.millis",
+            config_manager.get_playwright_action_timeout_millis(),
+        )
+        cls.validate_positive(
+            "playwright.navigation.timeout.millis",
+            config_manager.get_playwright_navigation_timeout_millis(),
+        )
+        cls.validate_positive("api.connect.timeout.seconds", config_manager.get_api_connect_timeout_seconds())
+        cls.validate_positive("api.read.timeout.seconds", config_manager.get_api_read_timeout_seconds())
+
+    @classmethod
+    def validate_retry_settings(cls, config_manager: ConfigManager) -> None:
+        cls.validate_non_negative("retry.count", config_manager.get_retry_count())
+        cls.validate_non_negative("retry.delay.seconds", config_manager.get_retry_delay_seconds())
 
     @classmethod
     def validate_parallel_settings(cls, config_manager: ConfigManager) -> None:
-        cls.validate_positive("thread.count", config_manager.get_thread_count())
-        cls.validate_positive(
-            "data.provider.thread.count",
-            config_manager.get_data_provider_thread_count(),
-        )
+        thread_count = config_manager.get_thread_count()
+        data_provider_thread_count = config_manager.get_data_provider_thread_count()
+
+        cls.validate_positive("thread.count", thread_count)
+        cls.validate_positive("data.provider.thread.count", data_provider_thread_count)
 
         parallel_mode = config_manager.get_parallel_mode()
         if parallel_mode not in FrameworkConstants.SUPPORTED_PARALLEL_MODES:
@@ -138,7 +134,10 @@ class StartupValidator:
         cls.validate_non_blank("serial.marker.name", serial_marker_name)
 
         cls.LOGGER.info(
-            "Validated parallel settings. enabled=%s | thread.count=%s | data.provider.thread.count=%s | serial.marker.name=%s",
+            (
+                "Validated parallel settings. enabled=%s | thread.count=%s | "
+                "data.provider.thread.count=%s | serial.marker.name=%s"
+            ),
             config_manager.is_parallel_enabled(),
             config_manager.get_thread_count(),
             config_manager.get_data_provider_thread_count(),
@@ -166,55 +165,57 @@ class StartupValidator:
     @classmethod
     def validate_positive(cls, property_name: str, value: int) -> None:
         if value <= 0:
-            raise StartupValidationException(
-                f"Configuration value must be greater than zero for property: " f"{property_name} | Actual: {value}"
-            )
+            raise StartupValidationException(f"Configuration value must be greater than zero. {property_name}={value}")
 
         cls.LOGGER.info("Validated positive numeric configuration: %s=%s", property_name, value)
 
     @classmethod
     def validate_non_negative(cls, property_name: str, value: int) -> None:
         if value < 0:
-            raise StartupValidationException(
-                f"Configuration value must be zero or greater for property: " f"{property_name} | Actual: {value}"
-            )
+            raise StartupValidationException(f"Configuration value cannot be negative. {property_name}={value}")
 
         cls.LOGGER.info("Validated non-negative numeric configuration: %s=%s", property_name, value)
 
     @classmethod
-    def validate_endpoint_reachability(
-        cls,
-        endpoint_name: str,
-        url: str,
-        timeout_seconds: int,
-    ) -> None:
-        try:
-            response = requests.get(url, timeout=timeout_seconds)
-            cls.LOGGER.info(
-                "Validated endpoint reachability: %s -> HTTP %s",
-                endpoint_name,
-                response.status_code,
-            )
-        except Exception as exc:
-            raise StartupValidationException(
-                f"Failed startup reachability validation for {endpoint_name} at URL: {url}"
-            ) from exc
+    def validate_required_directories(cls) -> None:
+        required_directories = [
+            FrameworkConstants.REPORTS_FOLDER,
+            FrameworkConstants.SCREENSHOTS_FOLDER,
+            FrameworkConstants.CUCUMBER_REPORTS_FOLDER,
+            FrameworkConstants.LOGS_FOLDER,
+            FrameworkConstants.TRACES_FOLDER,
+            FrameworkConstants.VIDEOS_FOLDER,
+            "test-output/allure-results",
+            "test-output/reports/images",
+        ]
+
+        for directory in required_directories:
+            ReportPathManager.create_directory_if_not_exists(directory)
+
+            if not Path(directory).exists():
+                raise StartupValidationException(
+                    f"Required artifact directory is missing and could not be created: {directory}"
+                )
+
+        cls.LOGGER.info("Validated required artifact directories successfully.")
 
     @classmethod
-    def validate_report_directories(cls) -> None:
+    def validate_application_reachability(cls, config_manager: ConfigManager) -> None:
+        if not config_manager.is_startup_validation_enabled():
+            return
+
+        base_url = config_manager.get_base_url()
+
         try:
-            ReportPathManager.create_directory_if_not_exists(FrameworkConstants.REPORTS_FOLDER)
-            ReportPathManager.create_directory_if_not_exists(FrameworkConstants.SCREENSHOTS_FOLDER)
-            ReportPathManager.create_directory_if_not_exists(FrameworkConstants.CUCUMBER_REPORTS_FOLDER)
-            ReportPathManager.create_directory_if_not_exists(FrameworkConstants.LOGS_FOLDER)
-            ReportPathManager.create_directory_if_not_exists(FrameworkConstants.TRACES_FOLDER)
-            ReportPathManager.create_directory_if_not_exists(FrameworkConstants.VIDEOS_FOLDER)
-
-            framework_log_path = Path(FrameworkConstants.LOGS_FOLDER) / "framework_master.log"
-            if not framework_log_path.exists():
-                framework_log_path.touch(exist_ok=True)
-
-        except Exception as exc:
-            raise StartupValidationException("Failed to create or validate report directories.") from exc
-
-        cls.LOGGER.info("Validated report/artifact directories.")
+            response = requests.get(
+                base_url,
+                timeout=config_manager.get_api_connect_timeout_seconds(),
+                verify=False,
+            )
+            cls.LOGGER.info(
+                "Application reachability check completed. URL=%s | Status=%s",
+                base_url,
+                response.status_code,
+            )
+        except requests.RequestException as exc:
+            raise StartupValidationException(f"Application reachability validation failed for URL: {base_url}") from exc

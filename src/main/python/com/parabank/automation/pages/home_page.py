@@ -1,6 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from com.parabank.automation.base.base_page import BasePage
+
+if TYPE_CHECKING:
+    from com.parabank.automation.pages.accounts_overview_page import AccountsOverviewPage
+    from com.parabank.automation.pages.bill_pay_page import BillPayPage
+    from com.parabank.automation.pages.find_transactions_page import FindTransactionsPage
+    from com.parabank.automation.pages.login_page import LoginPage
+    from com.parabank.automation.pages.open_new_account_page import OpenNewAccountPage
+    from com.parabank.automation.pages.transfer_funds_page import TransferFundsPage
 
 
 class HomePage(BasePage):
@@ -44,7 +54,7 @@ class HomePage(BasePage):
             and self.is_find_transactions_link_visible()
         )
 
-    def go_to_accounts_overview(self) -> "AccountsOverviewPage":
+    def go_to_accounts_overview(self) -> AccountsOverviewPage:
         self.logger.info("Navigating to Accounts Overview page.")
         self.click(self.ACCOUNTS_OVERVIEW_LINK)
         self.wait_for_url_contains("overview")
@@ -54,7 +64,7 @@ class HomePage(BasePage):
 
         return AccountsOverviewPage(self.page, self.config_manager)
 
-    def go_to_open_new_account(self) -> "OpenNewAccountPage":
+    def go_to_open_new_account(self) -> OpenNewAccountPage:
         self.logger.info("Navigating to Open New Account page.")
         self.click(self.OPEN_NEW_ACCOUNT_LINK)
         self.wait_for_url_contains("openaccount")
@@ -64,7 +74,7 @@ class HomePage(BasePage):
 
         return OpenNewAccountPage(self.page, self.config_manager)
 
-    def go_to_transfer_funds(self) -> "TransferFundsPage":
+    def go_to_transfer_funds(self) -> TransferFundsPage:
         self.logger.info("Navigating to Transfer Funds page.")
         self.click(self.TRANSFER_FUNDS_LINK)
         self.wait_for_url_contains("transfer")
@@ -74,7 +84,7 @@ class HomePage(BasePage):
 
         return TransferFundsPage(self.page, self.config_manager)
 
-    def go_to_bill_pay(self) -> "BillPayPage":
+    def go_to_bill_pay(self) -> BillPayPage:
         self.logger.info("Navigating to Bill Pay page.")
         self.click(self.BILL_PAY_LINK)
         self.wait_for_url_contains("billpay")
@@ -84,7 +94,7 @@ class HomePage(BasePage):
 
         return BillPayPage(self.page, self.config_manager)
 
-    def go_to_find_transactions(self) -> "FindTransactionsPage":
+    def go_to_find_transactions(self) -> FindTransactionsPage:
         self.logger.info("Navigating to Find Transactions page.")
         self.click(self.FIND_TRANSACTIONS_LINK)
         self.wait_for_url_contains("findtrans")
@@ -94,7 +104,7 @@ class HomePage(BasePage):
 
         return FindTransactionsPage(self.page, self.config_manager)
 
-    def logout(self) -> "LoginPage":
+    def logout(self) -> LoginPage:
         self.logger.info("Logging out from application.")
         self.click(self.LOG_OUT_LINK)
         self.wait_for_url_contains("index")

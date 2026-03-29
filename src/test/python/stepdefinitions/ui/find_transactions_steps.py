@@ -7,7 +7,9 @@ from pytest_bdd import parsers, then, when
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.context.framework_context import FrameworkContext
-from com.parabank.automation.dataproviders.find_transactions_test_data_provider import FindTransactionsTestDataProvider
+from com.parabank.automation.dataproviders.find_transactions_test_data_provider import (
+    FindTransactionsTestDataProvider,
+)
 from com.parabank.automation.pages.home_page import HomePage
 from stepdefinitions.ui.account_setup_helper import ensure_at_least_two_accounts_for_transfer
 
@@ -44,13 +46,19 @@ def _search_with_fallback_account(
 
     home_page = HomePage(test_context.page, test_context.config_manager)
     find_transactions_page = home_page.go_to_find_transactions()
-    find_transactions_page = find_transactions_page.find_transactions_by_amount(fallback_account, amount)
+    find_transactions_page = find_transactions_page.find_transactions_by_amount(
+        fallback_account,
+        amount,
+    )
 
     return find_transactions_page, fallback_account
 
 
 @when(parsers.parse('the user completes a transfer using find transactions test data key "{test_data_key}"'))
-def complete_transfer_using_find_transactions_test_data_key(test_context: FrameworkContext, test_data_key: str) -> None:
+def complete_transfer_using_find_transactions_test_data_key(
+    test_context: FrameworkContext,
+    test_data_key: str,
+) -> None:
     home_page = test_context.scenario_context.get("home_page")
     CommonAssertions.assert_not_none(
         home_page,
@@ -103,7 +111,10 @@ def complete_transfer_using_find_transactions_test_data_key(test_context: Framew
 
     test_context.scenario_context.set("transferred_from_account", transferred_from_account)
     test_context.scenario_context.set("transferred_to_account", transferred_to_account)
-    test_context.scenario_context.set("submitted_find_transactions_amount_text", find_transactions_test_data.amount)
+    test_context.scenario_context.set(
+        "submitted_find_transactions_amount_text",
+        find_transactions_test_data.amount,
+    )
     test_context.scenario_context.set("transfer_funds_page", transfer_funds_page)
 
 
@@ -139,7 +150,12 @@ def verify_find_transactions_page_displayed(test_context: FrameworkContext) -> N
 
 
 @when(parsers.parse('the user searches transactions by amount using the same test data key "{test_data_key}"'))
-def search_transactions_by_amount_using_same_test_data_key(test_context: FrameworkContext, test_data_key: str) -> None:
+def search_transactions_by_amount_using_same_test_data_key(
+    test_context: FrameworkContext,
+    test_data_key: str,
+) -> None:
+    _ = test_data_key
+
     transferred_from_account = test_context.scenario_context.get("transferred_from_account")
     transferred_to_account = test_context.scenario_context.get("transferred_to_account")
     find_transactions_test_data = test_context.scenario_context.get("find_transactions_test_data")
@@ -201,7 +217,9 @@ def verify_matching_transactions_displayed(test_context: FrameworkContext) -> No
 
 
 @then("the displayed transaction amount should match the searched amount")
-def verify_displayed_transaction_amount_matches_searched_amount(test_context: FrameworkContext) -> None:
+def verify_displayed_transaction_amount_matches_searched_amount(
+    test_context: FrameworkContext,
+) -> None:
     find_transactions_page = test_context.scenario_context.get("find_transactions_page")
     find_transactions_test_data = test_context.scenario_context.get("find_transactions_test_data")
 
@@ -221,7 +239,9 @@ def verify_displayed_transaction_amount_matches_searched_amount(test_context: Fr
 
 
 @then("the search results should be correct for the searched account and amount")
-def verify_search_results_correct_for_searched_account_and_amount(test_context: FrameworkContext) -> None:
+def verify_search_results_correct_for_searched_account_and_amount(
+    test_context: FrameworkContext,
+) -> None:
     find_transactions_page = test_context.scenario_context.get("find_transactions_page")
     find_transactions_test_data = test_context.scenario_context.get("find_transactions_test_data")
 

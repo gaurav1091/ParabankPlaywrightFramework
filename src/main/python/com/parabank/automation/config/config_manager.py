@@ -13,7 +13,9 @@ class ConfigManager:
     _overrides: dict[str, str] = {}
 
     def __init__(self) -> None:
-        framework_config_path = f"{FrameworkConstants.CONFIG_RESOURCES_ROOT}/{FrameworkConstants.FRAMEWORK_CONFIG_FILE}"
+        framework_config_path = (
+            f"{FrameworkConstants.CONFIG_RESOURCES_ROOT}/" f"{FrameworkConstants.FRAMEWORK_CONFIG_FILE}"
+        )
         environment_config_path = (
             f"{FrameworkConstants.CONFIG_RESOURCES_ROOT}/"
             f"{EnvironmentManager.get_environment_config_file_name(self._overrides.get('env'))}"
@@ -192,16 +194,44 @@ class ConfigManager:
         ).strip()
 
     def get_implicit_wait(self) -> int:
-        return self._get_int_property("implicit.wait", FrameworkConstants.DEFAULT_IMPLICIT_WAIT)
+        return self._get_int_property(
+            "implicit.wait",
+            FrameworkConstants.DEFAULT_IMPLICIT_WAIT,
+        )
 
     def get_explicit_wait(self) -> int:
-        return self._get_int_property("explicit.wait", FrameworkConstants.DEFAULT_EXPLICIT_WAIT)
+        return self._get_int_property(
+            "explicit.wait",
+            FrameworkConstants.DEFAULT_EXPLICIT_WAIT,
+        )
 
     def get_page_load_timeout(self) -> int:
-        return self._get_int_property("page.load.timeout", FrameworkConstants.DEFAULT_PAGE_LOAD_TIMEOUT)
+        return self._get_int_property(
+            "page.load.timeout",
+            FrameworkConstants.DEFAULT_PAGE_LOAD_TIMEOUT,
+        )
 
     def get_script_timeout(self) -> int:
-        return self._get_int_property("script.timeout", FrameworkConstants.DEFAULT_SCRIPT_TIMEOUT)
+        return self._get_int_property(
+            "script.timeout",
+            FrameworkConstants.DEFAULT_SCRIPT_TIMEOUT,
+        )
+
+    def get_default_timeout_millis(self) -> int:
+        return self._get_int_property(
+            "default.timeout.millis",
+            FrameworkConstants.DEFAULT_PLAYWRIGHT_NAVIGATION_TIMEOUT_MILLIS,
+        )
+
+    def get_page_load_timeout_millis(self) -> int:
+        configured_millis = self.get_property("page.load.timeout.millis")
+        if configured_millis is not None and configured_millis.strip():
+            return self._get_int_property(
+                "page.load.timeout.millis",
+                FrameworkConstants.DEFAULT_PLAYWRIGHT_BROWSER_LAUNCH_TIMEOUT_MILLIS,
+            )
+
+        return self.get_page_load_timeout() * 1000
 
     def is_highlight_elements_enabled(self) -> bool:
         return self._to_bool(self.get_property("highlight.elements"), default=False)
@@ -219,7 +249,10 @@ class ConfigManager:
         )
 
     def get_thread_count(self) -> int:
-        return self._get_int_property("thread.count", FrameworkConstants.DEFAULT_THREAD_COUNT)
+        return self._get_int_property(
+            "thread.count",
+            FrameworkConstants.DEFAULT_THREAD_COUNT,
+        )
 
     def get_data_provider_thread_count(self) -> int:
         return self._get_int_property(
@@ -260,7 +293,10 @@ class ConfigManager:
         )
 
     def get_retry_count(self) -> int:
-        return self._get_int_property("retry.count", FrameworkConstants.DEFAULT_RETRY_COUNT)
+        return self._get_int_property(
+            "retry.count",
+            FrameworkConstants.DEFAULT_RETRY_COUNT,
+        )
 
     def get_retry_delay_seconds(self) -> int:
         return self._get_int_property(

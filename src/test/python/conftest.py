@@ -8,6 +8,15 @@ import pytest
 from dotenv import load_dotenv
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+SRC_MAIN_PYTHON = PROJECT_ROOT / "src" / "main" / "python"
+SRC_TEST_PYTHON = PROJECT_ROOT / "src" / "test" / "python"
+
+for path in (SRC_MAIN_PYTHON, SRC_TEST_PYTHON):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
+
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.config.framework_constants import FrameworkConstants
 from com.parabank.automation.context.framework_context import FrameworkContext
@@ -18,16 +27,6 @@ from com.parabank.automation.reports.report_path_manager import ReportPathManage
 from com.parabank.automation.utils.artifact_cleanup_manager import ArtifactCleanupManager
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
 from com.parabank.automation.validation.startup_validator import StartupValidator
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-SRC_MAIN_PYTHON = PROJECT_ROOT / "src" / "main" / "python"
-SRC_TEST_PYTHON = PROJECT_ROOT / "src" / "test" / "python"
-
-for path in (SRC_MAIN_PYTHON, SRC_TEST_PYTHON):
-    path_str = str(path)
-    if path_str not in sys.path:
-        sys.path.insert(0, path_str)
-
 
 pytest_plugins = (
     "hooks.pytest_bdd_hooks",
@@ -78,9 +77,17 @@ PARALLEL_RUNTIME_CONFIG = {
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--env", action="store", default=None, help="Execution environment: qa, stage, dev")
     parser.addoption(
-        "--framework-browser", action="store", default=None, help="Framework browser: chrome, firefox, edge"
+        "--framework-browser",
+        action="store",
+        default=None,
+        help="Framework browser: chrome, firefox, edge",
     )
-    parser.addoption("--framework-headless", action="store", default=None, help="Framework headless mode: true/false")
+    parser.addoption(
+        "--framework-headless",
+        action="store",
+        default=None,
+        help="Framework headless mode: true/false",
+    )
     parser.addoption("--execution-mode", action="store", default=None, help="Execution mode: local/remote")
     parser.addoption("--remote-provider", action="store", default=None, help="Remote provider: browserstack")
     parser.addoption(
@@ -91,7 +98,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     parser.addoption("--thread-count", action="store", default=None, help="Parallel worker count equivalent")
     parser.addoption(
-        "--data-provider-thread-count", action="store", default=None, help="Parity placeholder with Java framework"
+        "--data-provider-thread-count",
+        action="store",
+        default=None,
+        help="Parity placeholder with Java framework",
     )
     parser.addoption(
         "--dist-mode",
@@ -112,7 +122,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--username", action="store", default=None, help="Override application username")
     parser.addoption("--password", action="store", default=None, help="Override application password")
     parser.addoption(
-        "--startup-validation", action="store", default=None, help="Enable/disable startup validation true/false"
+        "--startup-validation",
+        action="store",
+        default=None,
+        help="Enable/disable startup validation true/false",
     )
 
     parser.addoption(
@@ -582,7 +595,10 @@ def pytest_configure(config: pytest.Config) -> None:
     logger.info("Selected Suite    : %s", config.getoption("--suite"))
     logger.info("Flaky Policy      : quarantined tests are excluded unless --run-quarantined is used")
     logger.info(
-        "Parallel Policy   : tests marked '%s' are excluded from parallel runs unless --include-serial-in-parallel is used",
+        (
+            "Parallel Policy   : tests marked '%s' are excluded from parallel runs "
+            "unless --include-serial-in-parallel is used"
+        ),
         parallel_runtime_config["serial_marker_name"],
     )
 
@@ -736,7 +752,8 @@ def framework_page(
             request.node.failure_screenshot_path = str(screenshot_path)
 
             LOGGER.info(
-                "Failure screenshot captured in framework_page fixture teardown. Worker=%s | Node=%s | Screenshot=%s",
+                "Failure screenshot captured in framework_page fixture teardown. "
+                "Worker=%s | Node=%s | Screenshot=%s",
                 worker_id,
                 request.node.nodeid,
                 screenshot_path,
@@ -748,7 +765,10 @@ def framework_page(
                 _attach_text_to_allure("failure_title", page.title())
             except Exception as exc:
                 LOGGER.warning(
-                    "Failed attaching screenshot to Allure from framework_page teardown. Worker=%s | Node=%s | Error=%s",
+                    (
+                        "Failed attaching screenshot to Allure from framework_page teardown. "
+                        "Worker=%s | Node=%s | Error=%s"
+                    ),
                     worker_id,
                     request.node.nodeid,
                     exc,

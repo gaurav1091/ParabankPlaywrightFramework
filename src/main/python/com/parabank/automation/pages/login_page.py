@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from com.parabank.automation.base.base_page import BasePage
 from com.parabank.automation.utils.wait_utils import WaitUtils
+
+if TYPE_CHECKING:
+    from com.parabank.automation.pages.home_page import HomePage
 
 
 class LoginPage(BasePage):
@@ -43,7 +48,7 @@ class LoginPage(BasePage):
         WaitUtils.wait_for_page_load(self.page, self.config_manager)
         self.wait_for_page_ready()
 
-    def login(self, username: str, password: str) -> "HomePage":
+    def login(self, username: str, password: str) -> HomePage:
         self.logger.info("Performing login flow.")
         self.enter_username(username)
         self.enter_password(password)
@@ -53,7 +58,7 @@ class LoginPage(BasePage):
 
         return HomePage(self.page, self.config_manager)
 
-    def login_expecting_failure(self, username: str, password: str) -> "LoginPage":
+    def login_expecting_failure(self, username: str, password: str) -> LoginPage:
         self.logger.info("Performing login flow expecting failure.")
         self.enter_username(username)
         self.enter_password(password)
