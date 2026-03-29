@@ -30,6 +30,7 @@ from com.parabank.automation.validation.startup_validator import StartupValidato
 
 
 pytest_plugins = (
+    "hooks.pytest_bdd_hooks",
     "stepdefinitions.ui.application_launch_steps",
     "stepdefinitions.ui.login_steps",
     "stepdefinitions.ui.accounts_overview_steps",
@@ -39,6 +40,8 @@ pytest_plugins = (
     "stepdefinitions.ui.find_transactions_steps",
     "stepdefinitions.api.account_api_steps",
     "stepdefinitions.api.customer_api_steps",
+    "stepdefinitions.hybrid.account_hybrid_steps",
+    "stepdefinitions.hybrid.account_creation_hybrid_steps",
 )
 
 LOGGER = FrameworkLogger.get_logger("parabank_framework.conftest")
@@ -431,7 +434,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    if report.when not in {"setup", "call"}:
+    if report.when != "call":
         return
 
     stats = _get_retry_stats()
