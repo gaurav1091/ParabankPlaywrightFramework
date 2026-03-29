@@ -1,0 +1,28 @@
+[flake8]
+max-line-length = 120
+extend-ignore = E203, W503
+statistics = true
+count = true
+show-source = true
+
+exclude =
+    .git,
+    .github,
+    __pycache__,
+    .pytest_cache,
+    .venv,
+    venv,
+    node_modules,
+    test-output,
+    downloaded-html-reports,
+    downloaded-allure-results,
+    html-pages-site,
+    allure-pages-site,
+    pages-site
+
+per-file-ignores =
+    conftest.py:F401
+    src/test/python/conftest.py:F401
+    src/**/__init__.py:F401
+
+max-complexity = 18

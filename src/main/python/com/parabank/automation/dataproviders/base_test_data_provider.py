@@ -6,7 +6,6 @@ from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
 from com.parabank.automation.utils.json_reader import JsonReader
 
-
 T = TypeVar("T")
 
 
@@ -27,8 +26,7 @@ class BaseTestDataProvider:
 
         if not isinstance(data, list):
             raise AssertionError(
-                f"Expected list-based JSON test data in file '{relative_path}', "
-                f"but found: {type(data).__name__}"
+                f"Expected list-based JSON test data in file '{relative_path}', " f"but found: {type(data).__name__}"
             )
 
         return data

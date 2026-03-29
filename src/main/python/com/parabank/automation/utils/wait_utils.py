@@ -39,9 +39,7 @@ class WaitUtils:
             )
             return locator
         except Exception as exc:
-            raise ElementOperationException(
-                f"Failed waiting for locator with strategy '{strategy.value}'."
-            ) from exc
+            raise ElementOperationException(f"Failed waiting for locator with strategy '{strategy.value}'.") from exc
 
     @staticmethod
     def wait_for_url_contains(
@@ -56,9 +54,7 @@ class WaitUtils:
                 partial_url,
             )
         except Exception as exc:
-            raise ElementOperationException(
-                f"Failed waiting for URL to contain: {partial_url}"
-            ) from exc
+            raise ElementOperationException(f"Failed waiting for URL to contain: {partial_url}") from exc
 
     @staticmethod
     def wait_for_timeout(timeout_millis: int) -> None:

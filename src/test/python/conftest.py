@@ -3,15 +3,6 @@ import re
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-SRC_MAIN_PYTHON = PROJECT_ROOT / "src" / "main" / "python"
-SRC_TEST_PYTHON = PROJECT_ROOT / "src" / "test" / "python"
-
-for path in (SRC_MAIN_PYTHON, SRC_TEST_PYTHON):
-    path_str = str(path)
-    if path_str not in sys.path:
-        sys.path.insert(0, path_str)
-
 import allure
 import pytest
 from dotenv import load_dotenv
@@ -27,6 +18,15 @@ from com.parabank.automation.reports.report_path_manager import ReportPathManage
 from com.parabank.automation.utils.artifact_cleanup_manager import ArtifactCleanupManager
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
 from com.parabank.automation.validation.startup_validator import StartupValidator
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+SRC_MAIN_PYTHON = PROJECT_ROOT / "src" / "main" / "python"
+SRC_TEST_PYTHON = PROJECT_ROOT / "src" / "test" / "python"
+
+for path in (SRC_MAIN_PYTHON, SRC_TEST_PYTHON):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 
 pytest_plugins = (
@@ -77,22 +77,43 @@ PARALLEL_RUNTIME_CONFIG = {
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--env", action="store", default=None, help="Execution environment: qa, stage, dev")
-    parser.addoption("--framework-browser", action="store", default=None, help="Framework browser: chrome, firefox, edge")
+    parser.addoption(
+        "--framework-browser", action="store", default=None, help="Framework browser: chrome, firefox, edge"
+    )
     parser.addoption("--framework-headless", action="store", default=None, help="Framework headless mode: true/false")
     parser.addoption("--execution-mode", action="store", default=None, help="Execution mode: local/remote")
     parser.addoption("--remote-provider", action="store", default=None, help="Remote provider: browserstack")
-    parser.addoption("--parallel-enabled", action="store", default=None, help="Enable/disable framework-driven parallel mode: true/false")
+    parser.addoption(
+        "--parallel-enabled",
+        action="store",
+        default=None,
+        help="Enable/disable framework-driven parallel mode: true/false",
+    )
     parser.addoption("--thread-count", action="store", default=None, help="Parallel worker count equivalent")
-    parser.addoption("--data-provider-thread-count", action="store", default=None, help="Parity placeholder with Java framework")
-    parser.addoption("--dist-mode", action="store", default=None, help="xdist distribution mode: load, loadscope, loadfile, worksteal, no")
-    parser.addoption("--include-serial-in-parallel", action="store_true", default=False, help="Allow tests marked serial to remain in a parallel session")
+    parser.addoption(
+        "--data-provider-thread-count", action="store", default=None, help="Parity placeholder with Java framework"
+    )
+    parser.addoption(
+        "--dist-mode",
+        action="store",
+        default=None,
+        help="xdist distribution mode: load, loadscope, loadfile, worksteal, no",
+    )
+    parser.addoption(
+        "--include-serial-in-parallel",
+        action="store_true",
+        default=False,
+        help="Allow tests marked serial to remain in a parallel session",
+    )
     parser.addoption("--retry-count", action="store", default=None, help="Retry count")
     parser.addoption("--retry-delay", action="store", default=None, help="Retry delay in seconds")
     parser.addoption("--framework-base-url", action="store", default=None, help="Override application base url")
     parser.addoption("--api-base-url", action="store", default=None, help="Override API base url")
     parser.addoption("--username", action="store", default=None, help="Override application username")
     parser.addoption("--password", action="store", default=None, help="Override application password")
-    parser.addoption("--startup-validation", action="store", default=None, help="Enable/disable startup validation true/false")
+    parser.addoption(
+        "--startup-validation", action="store", default=None, help="Enable/disable startup validation true/false"
+    )
 
     parser.addoption(
         "--browserstack-project-name",
@@ -774,9 +795,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus: int, config: pytest.Co
     terminalreporter.write_line(f"Worker count            : {parallel_runtime_config['worker_count']}")
     terminalreporter.write_line(f"Dist mode               : {parallel_runtime_config['dist_mode']}")
     terminalreporter.write_line(f"Serial marker           : {parallel_runtime_config['serial_marker_name']}")
-    terminalreporter.write_line(
-        f"Include serial in parallel: {parallel_runtime_config['include_serial_in_parallel']}"
-    )
+    terminalreporter.write_line(f"Include serial in parallel: {parallel_runtime_config['include_serial_in_parallel']}")
 
     terminalreporter.section("Framework Retry Summary", sep="=")
     terminalreporter.write_line(f"Retry configured        : {retry_runtime_config['configured_retry_enabled']}")

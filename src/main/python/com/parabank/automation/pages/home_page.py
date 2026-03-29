@@ -51,6 +51,7 @@ class HomePage(BasePage):
         self.wait_for_page_ready()
 
         from com.parabank.automation.pages.accounts_overview_page import AccountsOverviewPage
+
         return AccountsOverviewPage(self.page, self.config_manager)
 
     def go_to_open_new_account(self) -> "OpenNewAccountPage":
@@ -60,6 +61,7 @@ class HomePage(BasePage):
         self.wait_for_page_ready()
 
         from com.parabank.automation.pages.open_new_account_page import OpenNewAccountPage
+
         return OpenNewAccountPage(self.page, self.config_manager)
 
     def go_to_transfer_funds(self) -> "TransferFundsPage":
@@ -69,6 +71,7 @@ class HomePage(BasePage):
         self.wait_for_page_ready()
 
         from com.parabank.automation.pages.transfer_funds_page import TransferFundsPage
+
         return TransferFundsPage(self.page, self.config_manager)
 
     def go_to_bill_pay(self) -> "BillPayPage":
@@ -78,6 +81,7 @@ class HomePage(BasePage):
         self.wait_for_page_ready()
 
         from com.parabank.automation.pages.bill_pay_page import BillPayPage
+
         return BillPayPage(self.page, self.config_manager)
 
     def go_to_find_transactions(self) -> "FindTransactionsPage":
@@ -87,6 +91,7 @@ class HomePage(BasePage):
         self.wait_for_page_ready()
 
         from com.parabank.automation.pages.find_transactions_page import FindTransactionsPage
+
         return FindTransactionsPage(self.page, self.config_manager)
 
     def logout(self) -> "LoginPage":
@@ -96,4 +101,5 @@ class HomePage(BasePage):
         self.wait_for_page_ready()
 
         from com.parabank.automation.pages.login_page import LoginPage
+
         return LoginPage(self.page, self.config_manager)

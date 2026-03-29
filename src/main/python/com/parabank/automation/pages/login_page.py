@@ -18,11 +18,7 @@ class LoginPage(BasePage):
         self.wait_for_page_ready()
 
     def is_login_page_displayed(self) -> bool:
-        return (
-            self.is_username_field_visible()
-            and self.is_password_field_visible()
-            and self.is_login_button_visible()
-        )
+        return self.is_username_field_visible() and self.is_password_field_visible() and self.is_login_button_visible()
 
     def is_username_field_visible(self) -> bool:
         return self.is_visible(self.USERNAME_INPUT)
@@ -54,6 +50,7 @@ class LoginPage(BasePage):
         self.click_login()
 
         from com.parabank.automation.pages.home_page import HomePage
+
         return HomePage(self.page, self.config_manager)
 
     def login_expecting_failure(self, username: str, password: str) -> "LoginPage":

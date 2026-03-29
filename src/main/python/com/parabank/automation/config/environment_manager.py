@@ -8,10 +8,7 @@ class EnvironmentManager:
         current_environment = (explicit_env or "qa").strip().lower()
 
         if current_environment not in FrameworkConstants.SUPPORTED_ENVIRONMENTS:
-            raise ValueError(
-                f"Unsupported environment: {current_environment}. "
-                f"Supported values: qa, stage, dev."
-            )
+            raise ValueError(f"Unsupported environment: {current_environment}. " f"Supported values: qa, stage, dev.")
 
         return current_environment
 

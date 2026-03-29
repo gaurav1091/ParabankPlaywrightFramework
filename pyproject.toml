@@ -1,0 +1,40 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+extend-exclude = '''
+/(
+    \.git
+  | \.github
+  | \.pytest_cache
+  | \.venv
+  | venv
+  | node_modules
+  | test-output
+  | downloaded-html-reports
+  | downloaded-allure-results
+  | html-pages-site
+  | allure-pages-site
+  | pages-site
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+py_version = 311
+skip_gitignore = true
+src_paths = ["src/main/python", "src/test/python"]
+skip = [
+    ".git",
+    ".github",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    "node_modules",
+    "test-output",
+    "downloaded-html-reports",
+    "downloaded-allure-results",
+    "html-pages-site",
+    "allure-pages-site",
+    "pages-site"
+]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pytest_bdd import given, parsers, then, when
 from playwright.sync_api import Playwright
+from pytest_bdd import given, parsers, then, when
 
 from com.parabank.automation.api.services.accounts_api_service import AccountsApiService
 from com.parabank.automation.assertions.api_assertions import ApiAssertions
@@ -15,7 +15,6 @@ from com.parabank.automation.dataproviders.login_test_data_provider import Login
 from com.parabank.automation.pages.login_page import LoginPage
 from com.parabank.automation.utils.cookie_utils import CookieUtils
 from com.parabank.automation.utils.customer_utils import CustomerUtils
-
 
 HYBRID_ACCOUNTS_API_SERVICE_CONTEXT_KEY = "hybrid_accounts_api_service"
 

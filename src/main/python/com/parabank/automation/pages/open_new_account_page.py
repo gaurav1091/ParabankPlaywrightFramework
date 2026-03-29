@@ -112,11 +112,7 @@ class OpenNewAccountPage(BasePage):
 
     def open_new_account(self, account_type: str) -> "OpenNewAccountPage":
         self.logger.info("Opening new account with type: %s", account_type)
-        return (
-            self.select_account_type(account_type)
-            .select_first_available_from_account()
-            .submit_open_new_account()
-        )
+        return self.select_account_type(account_type).select_first_available_from_account().submit_open_new_account()
 
     def open_new_account_from_specific_source(self, account_type: str, from_account: str) -> "OpenNewAccountPage":
         self.logger.info(
@@ -124,11 +120,7 @@ class OpenNewAccountPage(BasePage):
             account_type,
             from_account,
         )
-        return (
-            self.select_account_type(account_type)
-            .select_from_account(from_account)
-            .submit_open_new_account()
-        )
+        return self.select_account_type(account_type).select_from_account(from_account).submit_open_new_account()
 
     def has_numeric_new_account_number(self) -> bool:
         if not self.is_new_account_number_visible():

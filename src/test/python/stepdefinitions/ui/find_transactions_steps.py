@@ -35,7 +35,9 @@ def _search_with_fallback_account(
 
     find_transactions_page = find_transactions_page.find_transactions_by_amount(primary_account, amount)
 
-    if find_transactions_page.is_transactions_table_visible() and find_transactions_page.is_matching_amount_displayed(amount):
+    if find_transactions_page.is_transactions_table_visible() and find_transactions_page.is_matching_amount_displayed(
+        amount
+    ):
         return find_transactions_page, primary_account
 
     test_context.page.wait_for_timeout(1000)

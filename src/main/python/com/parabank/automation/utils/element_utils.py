@@ -92,6 +92,4 @@ class ElementUtils:
             self.LOGGER.info("Pressing key on selector: %s | Key: %s", selector, key)
             locator.press(key, timeout=self.config_manager.get_playwright_action_timeout_millis())
         except Exception as exc:
-            raise ElementOperationException(
-                f"Failed to press key '{key}' on selector: {selector}"
-            ) from exc
+            raise ElementOperationException(f"Failed to press key '{key}' on selector: {selector}") from exc

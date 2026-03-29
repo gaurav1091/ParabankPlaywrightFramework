@@ -178,13 +178,10 @@ class AccountsOverviewPage(BasePage):
         eligible_accounts = [
             account
             for account in accounts
-            if isinstance(account["available_balance"], Decimal)
-            and account["available_balance"] >= minimum_balance
+            if isinstance(account["available_balance"], Decimal) and account["available_balance"] >= minimum_balance
         ]
 
-        eligible_accounts.sort(
-            key=lambda item: (-item["available_balance"], str(item["account_number"]))
-        )
+        eligible_accounts.sort(key=lambda item: (-item["available_balance"], str(item["account_number"])))
 
         if not eligible_accounts:
             raise AssertionError(
@@ -243,9 +240,7 @@ class AccountsOverviewPage(BasePage):
             and account["available_balance"] >= transfer_amount_decimal
         ]
 
-        source_candidates.sort(
-            key=lambda item: (-item["available_balance"], str(item["account_number"]))
-        )
+        source_candidates.sort(key=lambda item: (-item["available_balance"], str(item["account_number"])))
         all_accounts_sorted = sorted(accounts, key=lambda item: str(item["account_number"]))
 
         for source_account in source_candidates:
@@ -287,9 +282,7 @@ class AccountsOverviewPage(BasePage):
             and account["available_balance"] >= transfer_amount_decimal
         ]
 
-        source_candidates.sort(
-            key=lambda item: (-item["available_balance"], str(item["account_number"]))
-        )
+        source_candidates.sort(key=lambda item: (-item["available_balance"], str(item["account_number"])))
 
         destination_candidates = sorted(
             [
@@ -335,9 +328,7 @@ class AccountsOverviewPage(BasePage):
             and account["available_balance"] >= payment_amount_decimal
         ]
 
-        eligible_accounts.sort(
-            key=lambda item: (-item["available_balance"], str(item["account_number"]))
-        )
+        eligible_accounts.sort(key=lambda item: (-item["available_balance"], str(item["account_number"])))
 
         if eligible_accounts:
             selected_account = str(eligible_accounts[0]["account_number"]).strip()
@@ -361,13 +352,7 @@ class AccountsOverviewPage(BasePage):
         raise AssertionError("No valid Bill Pay source account was found from dropdown options.")
 
     def _parse_currency(self, currency_value: str) -> Decimal:
-        normalized = (
-            currency_value.strip()
-            .replace("$", "")
-            .replace(",", "")
-            .replace("(", "-")
-            .replace(")", "")
-        )
+        normalized = currency_value.strip().replace("$", "").replace(",", "").replace("(", "-").replace(")", "")
 
         if not normalized:
             raise AssertionError("Currency value is blank and cannot be parsed.")
@@ -375,6 +360,4 @@ class AccountsOverviewPage(BasePage):
         try:
             return Decimal(normalized).quantize(Decimal("0.01"))
         except (InvalidOperation, ValueError) as exc:
-            raise AssertionError(
-                f"Unable to parse currency value from Accounts Overview: '{currency_value}'"
-            ) from exc
+            raise AssertionError(f"Unable to parse currency value from Accounts Overview: '{currency_value}'") from exc

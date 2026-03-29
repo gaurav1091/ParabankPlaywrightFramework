@@ -1,10 +1,9 @@
-from pytest_bdd import then, when, parsers
+from pytest_bdd import parsers, then, when
 
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.context.framework_context import FrameworkContext
 from com.parabank.automation.dataproviders.open_new_account_test_data_provider import OpenNewAccountTestDataProvider
-
 
 MINIMUM_SOURCE_ACCOUNT_BALANCE_FOR_NEW_ACCOUNT = 10
 
@@ -128,8 +127,7 @@ def create_new_account_using_test_data_key(test_context: FrameworkContext, test_
 
     CommonAssertions.assert_not_none(
         successful_source_account,
-        "New account could not be confirmed using any eligible source account. "
-        f"Attempts={attempt_summaries}",
+        "New account could not be confirmed using any eligible source account. " f"Attempts={attempt_summaries}",
     )
     CommonAssertions.assert_not_none(
         created_account_number,

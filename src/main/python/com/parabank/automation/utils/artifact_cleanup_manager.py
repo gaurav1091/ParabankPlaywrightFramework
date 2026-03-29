@@ -9,9 +9,7 @@ from com.parabank.automation.utils.framework_logger import FrameworkLogger
 class ArtifactCleanupManager:
     LOGGER = FrameworkLogger.get_logger("parabank_framework.artifact_cleanup_manager")
 
-    SAFE_ROOT_PREFIXES = (
-        "test-output",
-    )
+    SAFE_ROOT_PREFIXES = ("test-output",)
 
     @classmethod
     def cleanup_directories(cls, directories: list[str]) -> None:
@@ -23,9 +21,7 @@ class ArtifactCleanupManager:
         path = Path(directory).resolve()
 
         if not cls._is_safe_to_cleanup(path):
-            raise ValueError(
-                f"Refusing to cleanup unsafe directory path: {path}"
-            )
+            raise ValueError(f"Refusing to cleanup unsafe directory path: {path}")
 
         if path.exists():
             cls.LOGGER.info("Cleaning artifact directory: %s", path)
@@ -45,7 +41,11 @@ class ArtifactCleanupManager:
         normalized = str(path).replace("\\", "/")
 
         for safe_prefix in cls.SAFE_ROOT_PREFIXES:
-            if f"/{safe_prefix}/" in normalized or normalized.endswith(f"/{safe_prefix}") or normalized.endswith(safe_prefix):
+            if (
+                f"/{safe_prefix}/" in normalized
+                or normalized.endswith(f"/{safe_prefix}")
+                or normalized.endswith(safe_prefix)
+            ):
                 return True
 
         return False

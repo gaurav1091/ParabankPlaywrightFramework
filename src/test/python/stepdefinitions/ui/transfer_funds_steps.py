@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from decimal import Decimal
 
 from pytest_bdd import parsers, then, when
@@ -7,7 +8,9 @@ from pytest_bdd import parsers, then, when
 from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.assertions.ui_assertions import UiAssertions
 from com.parabank.automation.context.framework_context import FrameworkContext
-from com.parabank.automation.dataproviders.transfer_funds_test_data_provider import TransferFundsTestDataProvider
+from com.parabank.automation.dataproviders.transfer_funds_test_data_provider import (
+    TransferFundsTestDataProvider,
+)
 from com.parabank.automation.pages.home_page import HomePage
 from stepdefinitions.ui.account_setup_helper import ensure_at_least_two_accounts_for_transfer
 
@@ -18,6 +21,75 @@ def _to_money_decimal(value: str) -> Decimal:
 
 def _to_money_text(value: str) -> str:
     return f"${_to_money_decimal(value):.2f}"
+
+
+def _normalize_decimal(value) -> Decimal:
+    return Decimal(str(value)).quantize(Decimal("0.01"))
+
+
+def _get_account_summary_snapshot(
+    accounts_overview_page,
+    account_number: str,
+) -> tuple[Decimal, Decimal]:
+    account_summary = accounts_overview_page.get_account_summary_by_number(str(account_number))
+
+    CommonAssertions.assert_not_none(
+        account_summary,
+        f"Account summary should exist for account number '{account_number}'.",
+    )
+
+    balance_value = account_summary.get("balance")
+    available_balance_value = account_summary.get("available_balance")
+
+    CommonAssertions.assert_not_none(
+        balance_value,
+        f"Balance value should exist for account number '{account_number}'.",
+    )
+    CommonAssertions.assert_not_none(
+        available_balance_value,
+        f"Available balance value should exist for account number '{account_number}'.",
+    )
+
+    return _normalize_decimal(balance_value), _normalize_decimal(available_balance_value)
+
+
+def _wait_for_destination_balance_update(
+    test_context: FrameworkContext,
+    destination_account: str,
+    expected_balance: Decimal,
+    timeout_seconds: int = 25,
+    poll_interval_seconds: int = 2,
+) -> Decimal:
+    start_time = time.time()
+    last_seen_value: Decimal | None = None
+
+    while time.time() - start_time < timeout_seconds:
+        home_page = HomePage(test_context.page, test_context.config_manager)
+        accounts_overview_page = home_page.go_to_accounts_overview()
+
+        UiAssertions.assert_element_visible(
+            test_context.page,
+            accounts_overview_page.is_accounts_overview_page_loaded(),
+            "Accounts Overview Page",
+            "Accounts Overview page should be visible during destination balance polling.",
+            "transfer_funds_polling_accounts_overview",
+        )
+
+        destination_balance_after, _ = _get_account_summary_snapshot(
+            accounts_overview_page,
+            str(destination_account),
+        )
+        last_seen_value = destination_balance_after
+
+        if destination_balance_after == expected_balance:
+            return destination_balance_after
+
+        time.sleep(poll_interval_seconds)
+
+    raise AssertionError(
+        "Destination balance did not update within timeout. "
+        f"Expected={expected_balance!r} | LastSeen={last_seen_value!r} | TimeoutSeconds={timeout_seconds}"
+    )
 
 
 @when("the user navigates to the Transfer Funds page")
@@ -50,6 +122,7 @@ def verify_transfer_funds_page_displayed(test_context: FrameworkContext) -> None
         "Transfer Funds page is not displayed.",
         "transfer_funds_page_loaded",
     )
+
     UiAssertions.assert_text_equals(
         test_context.page,
         transfer_funds_page.get_page_heading_text(),
@@ -60,7 +133,10 @@ def verify_transfer_funds_page_displayed(test_context: FrameworkContext) -> None
 
 
 @when(parsers.parse('the user transfers funds using test data key "{test_data_key}"'))
-def transfer_funds_using_test_data_key(test_context: FrameworkContext, test_data_key: str) -> None:
+def transfer_funds_using_test_data_key(
+    test_context: FrameworkContext,
+    test_data_key: str,
+) -> None:
     transfer_funds_test_data = TransferFundsTestDataProvider.get_transfer_funds_test_data_by_key(test_data_key)
     test_context.scenario_context.set("transfer_funds_test_data", transfer_funds_test_data)
 
@@ -80,10 +156,25 @@ def transfer_funds_using_test_data_key(test_context: FrameworkContext, test_data
         "transfer_funds_page_loaded_before_execution",
     )
 
-    transfer_funds_page.enter_amount(transfer_amount_text).select_first_available_accounts()
+    available_from_accounts = transfer_funds_page.get_available_from_accounts()
+    available_to_accounts = transfer_funds_page.get_available_to_accounts()
 
-    source_account = transfer_funds_page.get_selected_from_account()
-    destination_account = transfer_funds_page.get_selected_to_account()
+    home_page = HomePage(test_context.page, test_context.config_manager)
+    accounts_overview_page = home_page.go_to_accounts_overview()
+
+    UiAssertions.assert_element_visible(
+        test_context.page,
+        accounts_overview_page.is_accounts_overview_page_loaded(),
+        "Accounts Overview Page",
+        "Accounts Overview page should be displayed before transfer balance capture.",
+        "transfer_funds_accounts_overview_loaded",
+    )
+
+    source_account, destination_account = accounts_overview_page.get_transfer_candidate_accounts_from_dropdown_options(
+        available_from_accounts,
+        available_to_accounts,
+        transfer_amount_text,
+    )
 
     CommonAssertions.assert_not_none(
         source_account,
@@ -98,33 +189,59 @@ def transfer_funds_using_test_data_key(test_context: FrameworkContext, test_data
         "Transfer source and destination accounts should be different.",
     )
 
-    test_context.scenario_context.set("transfer_source_account", source_account)
-    test_context.scenario_context.set("transfer_destination_account", destination_account)
-    test_context.scenario_context.set("transfer_amount_decimal", transfer_amount_decimal)
-
-    home_page = HomePage(test_context.page, test_context.config_manager)
-    accounts_overview_page = home_page.go_to_accounts_overview()
-
-    UiAssertions.assert_element_visible(
-        test_context.page,
-        accounts_overview_page.is_accounts_overview_page_loaded(),
-        "Accounts Overview Page",
-        "Accounts Overview page should be displayed before transfer balance capture.",
-        "transfer_funds_accounts_overview_loaded",
+    source_balance_before, source_available_balance_before = _get_account_summary_snapshot(
+        accounts_overview_page,
+        str(source_account),
+    )
+    destination_balance_before, destination_available_balance_before = _get_account_summary_snapshot(
+        accounts_overview_page,
+        str(destination_account),
     )
 
-    source_balance_before = accounts_overview_page.get_available_balance_for_account(source_account)
-    destination_balance_before = accounts_overview_page.get_available_balance_for_account(destination_account)
+    CommonAssertions.assert_true(
+        source_available_balance_before >= transfer_amount_decimal,
+        (
+            f"Selected source account '{source_account}' does not have enough available balance "
+            f"for transfer amount {transfer_amount_decimal}. "
+            f"Available balance: {source_available_balance_before}"
+        ),
+    )
+
+    test_context.scenario_context.set("transfer_source_account", str(source_account))
+    test_context.scenario_context.set("transfer_destination_account", str(destination_account))
+    test_context.scenario_context.set("transfer_amount_decimal", transfer_amount_decimal)
 
     test_context.scenario_context.set("source_balance_before_transfer", source_balance_before)
-    test_context.scenario_context.set("destination_balance_before_transfer", destination_balance_before)
+    test_context.scenario_context.set(
+        "source_available_balance_before_transfer",
+        source_available_balance_before,
+    )
+
+    test_context.scenario_context.set(
+        "destination_balance_before_transfer",
+        destination_balance_before,
+    )
+    test_context.scenario_context.set(
+        "destination_available_balance_before_transfer",
+        destination_available_balance_before,
+    )
 
     home_page = HomePage(test_context.page, test_context.config_manager)
     transfer_funds_page = home_page.go_to_transfer_funds()
-    transfer_funds_page.enter_amount(transfer_amount_text).select_from_account(source_account).select_to_account(
-        destination_account
+
+    UiAssertions.assert_element_visible(
+        test_context.page,
+        transfer_funds_page.is_transfer_funds_page_loaded(),
+        "Transfer Funds Page",
+        "Transfer Funds page should be displayed before explicit transfer execution.",
+        "transfer_funds_page_loaded_before_explicit_execution",
     )
-    transfer_funds_page = transfer_funds_page.click_transfer_button()
+
+    transfer_funds_page = transfer_funds_page.transfer_funds_between_accounts(
+        transfer_amount_text,
+        str(source_account),
+        str(destination_account),
+    )
 
     test_context.scenario_context.set("transfer_funds_page", transfer_funds_page)
 
@@ -185,18 +302,50 @@ def verify_transferred_amount_displayed_correctly(test_context: FrameworkContext
 
 
 @then("the source and destination balances should be updated correctly")
-def verify_source_and_destination_balances_updated_correctly(test_context: FrameworkContext) -> None:
+def verify_source_and_destination_balances_updated_correctly(
+    test_context: FrameworkContext,
+) -> None:
     source_account = test_context.scenario_context.get("transfer_source_account")
     destination_account = test_context.scenario_context.get("transfer_destination_account")
     transfer_amount_decimal = test_context.scenario_context.get("transfer_amount_decimal")
-    source_balance_before = test_context.scenario_context.get("source_balance_before_transfer")
-    destination_balance_before = test_context.scenario_context.get("destination_balance_before_transfer")
 
-    CommonAssertions.assert_not_none(source_account, "Source account should be present for balance validation.")
-    CommonAssertions.assert_not_none(destination_account, "Destination account should be present for balance validation.")
-    CommonAssertions.assert_not_none(transfer_amount_decimal, "Transfer amount should be present for balance validation.")
-    CommonAssertions.assert_not_none(source_balance_before, "Source pre-transfer balance should be present.")
-    CommonAssertions.assert_not_none(destination_balance_before, "Destination pre-transfer balance should be present.")
+    source_balance_before = test_context.scenario_context.get("source_balance_before_transfer")
+    source_available_balance_before = test_context.scenario_context.get("source_available_balance_before_transfer")
+
+    destination_balance_before = test_context.scenario_context.get("destination_balance_before_transfer")
+    destination_available_balance_before = test_context.scenario_context.get(
+        "destination_available_balance_before_transfer"
+    )
+
+    CommonAssertions.assert_not_none(
+        source_account,
+        "Source account should be present for balance validation.",
+    )
+    CommonAssertions.assert_not_none(
+        destination_account,
+        "Destination account should be present for balance validation.",
+    )
+    CommonAssertions.assert_not_none(
+        transfer_amount_decimal,
+        "Transfer amount should be present for balance validation.",
+    )
+
+    CommonAssertions.assert_not_none(
+        source_balance_before,
+        "Source pre-transfer balance should be present.",
+    )
+    CommonAssertions.assert_not_none(
+        source_available_balance_before,
+        "Source pre-transfer available balance should be present.",
+    )
+    CommonAssertions.assert_not_none(
+        destination_balance_before,
+        "Destination pre-transfer balance should be present.",
+    )
+    CommonAssertions.assert_not_none(
+        destination_available_balance_before,
+        "Destination pre-transfer available balance should be present.",
+    )
 
     home_page = HomePage(test_context.page, test_context.config_manager)
     accounts_overview_page = home_page.go_to_accounts_overview()
@@ -209,17 +358,31 @@ def verify_source_and_destination_balances_updated_correctly(test_context: Frame
         "transfer_funds_accounts_overview_after_transfer",
     )
 
-    source_balance_after = accounts_overview_page.get_available_balance_for_account(str(source_account))
-    destination_balance_after = accounts_overview_page.get_available_balance_for_account(str(destination_account))
+    _, source_available_balance_after = _get_account_summary_snapshot(
+        accounts_overview_page,
+        str(source_account),
+    )
 
-    expected_source_balance_after = (source_balance_before - transfer_amount_decimal).quantize(Decimal("0.01"))
-    expected_destination_balance_after = (destination_balance_before + transfer_amount_decimal).quantize(Decimal("0.01"))
+    expected_source_available_balance_after = (
+        _normalize_decimal(source_available_balance_before) - _normalize_decimal(transfer_amount_decimal)
+    ).quantize(Decimal("0.01"))
+
+    expected_destination_balance_after = (
+        _normalize_decimal(destination_balance_before) + _normalize_decimal(transfer_amount_decimal)
+    ).quantize(Decimal("0.01"))
+
+    destination_balance_after = _wait_for_destination_balance_update(
+        test_context,
+        str(destination_account),
+        expected_destination_balance_after,
+    )
 
     CommonAssertions.assert_equals(
-        source_balance_after,
-        expected_source_balance_after,
-        "Source account balance did not decrease correctly after transfer.",
+        source_available_balance_after,
+        expected_source_available_balance_after,
+        "Source available balance did not decrease correctly after transfer.",
     )
+
     CommonAssertions.assert_equals(
         destination_balance_after,
         expected_destination_balance_after,
