@@ -93,12 +93,17 @@ class ApiClient:
 
         if not response.ok:
             raise AssertionError(
-                f"GET request failed. Path={normalized_path} | Status={response.status_code} | Body={response.body_text}"
+                (
+                    f"GET request failed. Path={normalized_path} | "
+                    f"Status={response.status_code} | "
+                    f"Body={response.body_text}"
+                )
             )
 
         if not isinstance(response.json_payload, dict):
             raise AssertionError(
-                f"Expected JSON object response. Path={normalized_path} | Status={response.status_code} | "
+                f"Expected JSON object response. Path={normalized_path} | "
+                f"Status={response.status_code} | "
                 f"ActualType={type(response.json_payload)!r}"
             )
 
@@ -114,12 +119,17 @@ class ApiClient:
 
         if not response.ok:
             raise AssertionError(
-                f"GET request failed. Path={normalized_path} | Status={response.status_code} | Body={response.body_text}"
+                (
+                    f"GET request failed. Path={normalized_path} | "
+                    f"Status={response.status_code} | "
+                    f"Body={response.body_text}"
+                )
             )
 
         if not isinstance(response.json_payload, list):
             raise AssertionError(
-                f"Expected JSON array response. Path={normalized_path} | Status={response.status_code} | "
+                f"Expected JSON array response. Path={normalized_path} | "
+                f"Status={response.status_code} | "
                 f"ActualType={type(response.json_payload)!r}"
             )
 

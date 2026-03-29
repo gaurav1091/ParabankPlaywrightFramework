@@ -1,23 +1,30 @@
 import functools
 import time
-from typing import Callable
+from typing import Any, Callable, TypeVar, cast
+
+WrappedFunction = TypeVar("WrappedFunction", bound=Callable[..., Any])
 
 
-def retry(max_retries: int = 1, delay: int = 1):
-    def decorator(func: Callable):
+def retry(max_retries: int = 1, delay: int = 1) -> Callable[[WrappedFunction], WrappedFunction]:
+    def decorator(func: WrappedFunction) -> WrappedFunction:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception: Exception | None = None
+
             for attempt in range(max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
+                except Exception as exc:
+                    last_exception = exc
+
                     if attempt < max_retries:
                         time.sleep(delay)
-                    else:
-                        raise last_exception
+                        continue
 
-        return wrapper
+                    raise last_exception from exc
+
+            raise RuntimeError("Retry decorator exited unexpectedly without returning or raising.")
+
+        return cast(WrappedFunction, wrapper)
 
     return decorator

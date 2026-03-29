@@ -1,5 +1,4 @@
 import pytest
-from pytest_bdd import given, scenarios, then, when
 
 
 def pytest_bdd_apply_tag(tag, function):

@@ -87,7 +87,10 @@ class UiAssertions:
                 failure_message,
             )
             cls.LOGGER.info(
-                "UI assertion passed: current URL does not contain unexpected value. UnexpectedPartial=%s | ActualURL=%s",
+                (
+                    "UI assertion passed: current URL does not contain unexpected value. "
+                    "UnexpectedPartial=%s | ActualURL=%s"
+                ),
                 unexpected_partial_url,
                 actual_url,
             )
@@ -150,7 +153,8 @@ class UiAssertions:
         except AssertionError as exc:
             diagnostics = FailureDiagnosticsUtils.capture_page_diagnostics(page, diagnostic_name)
             raise AssertionError(
-                f"{failure_message} | Expected text: {expected_text!r} | Actual text: {actual_text!r} "
+                f"{failure_message} | Expected text: {expected_text!r} "
+                f"| Actual text: {actual_text!r} "
                 f"| Screenshot: {diagnostics['screenshot_path']} "
                 f"| URL: {diagnostics['url']}"
             ) from exc
@@ -203,7 +207,8 @@ class UiAssertions:
         except AssertionError as exc:
             diagnostics = FailureDiagnosticsUtils.capture_page_diagnostics(page, diagnostic_name)
             raise AssertionError(
-                f"{failure_message} | Expected count greater than: {threshold!r} | Actual count: {actual_count!r} "
+                f"{failure_message} | Expected count greater than: {threshold!r} "
+                f"| Actual count: {actual_count!r} "
                 f"| Screenshot: {diagnostics['screenshot_path']} "
                 f"| URL: {diagnostics['url']}"
             ) from exc

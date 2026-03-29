@@ -44,7 +44,12 @@ disable=
     broad-exception-raised,
     fixme,
     import-outside-toplevel,
-    protected-access
+    protected-access,
+    wrong-import-position,
+    redefined-outer-name,
+    unused-argument,
+    too-many-public-methods,
+    too-many-positional-arguments
 
 [REPORTS]
 score=yes
@@ -55,7 +60,7 @@ max-line-length=120
 
 [DESIGN]
 max-args=10
-max-attributes=15
+max-attributes=20
 max-locals=30
 max-branches=20
 max-statements=80

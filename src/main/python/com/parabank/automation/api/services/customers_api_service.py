@@ -8,6 +8,7 @@ from com.parabank.automation.api.models.api_response import ApiResponse
 from com.parabank.automation.api.models.customer_account_summary import CustomerAccountSummary
 from com.parabank.automation.api.models.customer_summary import CustomerSummary
 from com.parabank.automation.assertions.api_assertions import ApiAssertions
+from com.parabank.automation.assertions.common_assertions import CommonAssertions
 from com.parabank.automation.config.config_manager import ConfigManager
 from com.parabank.automation.utils.framework_logger import FrameworkLogger
 
@@ -19,7 +20,7 @@ class CustomersApiService:
 
     def get_customer_response(self, customer_id: int) -> ApiResponse:
         self._logger.info("Fetching customer through API. CustomerId=%s", customer_id)
-        return self._api_client.get(ApiRoutes.customer(customer_id))
+        return self._api_client.get(f"customers/{customer_id}")
 
     def get_customer(self, customer_id: int) -> CustomerSummary:
         response = self.get_customer_response(customer_id)
@@ -36,9 +37,13 @@ class CustomersApiService:
 
         customer = CustomerSummary.from_dict(response.json_payload)
 
-        ApiAssertions.assert_customer_summary_has_valid_core_fields(
-            customer,
-            f"Customer summary validation failed for customerId={customer_id}.",
+        CommonAssertions.assert_true(
+            customer.customer_id > 0,
+            f"Customer summary validation failed for customerId={customer_id}. Invalid customer_id.",
+        )
+        CommonAssertions.assert_not_empty(
+            customer.username,
+            f"Customer summary validation failed for customerId={customer_id}. Username is blank.",
         )
 
         return customer

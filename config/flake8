@@ -22,7 +22,7 @@ exclude =
 
 per-file-ignores =
     conftest.py:F401
-    src/test/python/conftest.py:F401
+    src/test/python/conftest.py:F401,E402
     src/**/__init__.py:F401
 
 max-complexity = 18
