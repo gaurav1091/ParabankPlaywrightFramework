@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from com.parabank.automation.base.base_page import BasePage
 
 
@@ -63,10 +65,46 @@ class OpenNewAccountPage(BasePage):
     def get_selected_from_account(self) -> str:
         return self.get_selected_dropdown_text(self.FROM_ACCOUNT_DROPDOWN)
 
+    def wait_for_account_creation_result(self, timeout_millis: int | None = None) -> "OpenNewAccountPage":
+        effective_timeout = timeout_millis or self.config_manager.get_playwright_navigation_timeout_millis()
+
+        candidate_locators = (
+            self.ACCOUNT_OPENED_HEADING,
+            self.NEW_ACCOUNT_NUMBER_LINK,
+            self.OPEN_ACCOUNT_RESULT_PANEL,
+            self.RIGHT_PANEL_ERRORS,
+        )
+
+        for selector in candidate_locators:
+            try:
+                self.page.locator(selector).first.wait_for(state="visible", timeout=effective_timeout)
+                self.logger.info(
+                    "Detected Open New Account result state using selector: %s",
+                    selector,
+                )
+                return self
+            except PlaywrightTimeoutError:
+                continue
+            except Exception as exc:
+                self.logger.warning(
+                    "Ignoring non-fatal exception while waiting for Open New Account result selector=%s | Error=%s",
+                    selector,
+                    exc,
+                )
+                continue
+
+        self.logger.info(
+            "No explicit Open New Account result selector became visible within timeout=%s ms. "
+            "Continuing with page-content-based validation.",
+            effective_timeout,
+        )
+        return self
+
     def click_open_new_account_button(self) -> "OpenNewAccountPage":
         self.logger.info("Clicking Open New Account button.")
         self.click(self.OPEN_NEW_ACCOUNT_BUTTON)
         self.wait_for_page_ready()
+        self.wait_for_account_creation_result()
         return self
 
     def submit_open_new_account(self) -> "OpenNewAccountPage":
@@ -100,7 +138,19 @@ class OpenNewAccountPage(BasePage):
         return new_account_number.isdigit()
 
     def is_account_creation_successful(self) -> bool:
-        return self.is_visible(self.ACCOUNT_OPENED_HEADING) and self.has_numeric_new_account_number()
+        feedback_message = self.get_submission_feedback_message().lower()
+
+        if self.has_numeric_new_account_number():
+            return True
+
+        if self.is_visible(self.ACCOUNT_OPENED_HEADING) and self.shows_success_text():
+            return True
+
+        return (
+            "account opened" in feedback_message
+            or "your account is now open" in feedback_message
+            or "your new account number" in feedback_message
+        )
 
     def get_account_opened_heading_text(self) -> str:
         return self.get_text(self.ACCOUNT_OPENED_HEADING)

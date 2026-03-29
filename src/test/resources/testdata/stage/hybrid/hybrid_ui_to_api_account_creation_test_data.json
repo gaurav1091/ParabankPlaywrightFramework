@@ -1,0 +1,12 @@
+[
+  {
+    "key": "hybridSavingsAccountCreation",
+    "loginKey": "validUser",
+    "openNewAccountKey": "savingsAccount"
+  },
+  {
+    "key": "hybridCheckingAccountCreation",
+    "loginKey": "validUser",
+    "openNewAccountKey": "checkingAccount"
+  }
+]
