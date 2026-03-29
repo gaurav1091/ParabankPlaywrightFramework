@@ -73,9 +73,11 @@ on:
           - "2"
           - "3"
           - "4"
+  schedule:
+    - cron: "0 3 20 * *"
 
 concurrency:
-  group: parabank-ci-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.suite || 'smoke' }}
+  group: parabank-ci-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.suite || 'scheduled' }}
   cancel-in-progress: true
 
 permissions:
@@ -138,7 +140,14 @@ jobs:
         id: plan
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            SUITE="regression"
+            ENVIRONMENT="qa"
+            BROWSER_MODE="matrix"
+            BROWSER_SELECTION="chrome-firefox"
+            EXECUTION_MODE="local"
+            WORKERS="1"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SUITE="${{ github.event.inputs.suite }}"
             ENVIRONMENT="${{ github.event.inputs.environment }}"
             BROWSER_MODE="${{ github.event.inputs.browser_mode }}"
